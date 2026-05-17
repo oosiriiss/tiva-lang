@@ -13,6 +13,7 @@ add_library(
 
    ./src/lexer.cpp
    ./src/lexer.hpp
+   ./src/utility.hpp
 )
 target_include_directories(tiva-compiler-lib PUBLIC src)
 target_compile_features(tiva-compiler-lib PUBLIC cxx_std_23)

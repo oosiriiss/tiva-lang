@@ -22,3 +22,4 @@ endfunction()
 Register_Test(tokenize_test)
 
 
+Register_Test(utility_test)

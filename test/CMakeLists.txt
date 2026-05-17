@@ -19,7 +19,5 @@ function(Register_Test NAME)
 endfunction()
 
 
-Register_Test(tokenize_test)
-
-
+Register_Test(lexer_test)
 Register_Test(utility_test)

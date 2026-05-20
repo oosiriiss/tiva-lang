@@ -1,5 +1,10 @@
 #pragma once
 #include <array>
+#include <charconv>
+#include <concepts>
+#include <format>
+#include <stdexcept>
+#include <string_view>
 
 namespace util {
 
@@ -20,6 +25,52 @@ namespace util {
   }
 
   return false;
+}
+
+template <std::integral T>
+[[nodiscard]] constexpr auto toNumber(std::string_view numberString) -> T {
+
+  T output;
+
+  constexpr int base = 10;
+  auto [ptr, ec] = std::from_chars(numberString.data(),
+                                   numberString.data() + numberString.length(),
+                                   output, base);
+
+  if (ec == std::errc()) {
+    return output;
+  }
+
+  if (ec == std::errc::result_out_of_range) {
+    throw std::out_of_range(
+        std::format("Number '{}' larger than specified type", numberString));
+  }
+
+  throw std::invalid_argument(
+      std::format("Number '{}' is not a number", numberString));
+}
+
+template <std::floating_point T>
+[[nodiscard]] constexpr auto toNumber(std::string_view numberString) -> T {
+
+  T output;
+
+  auto format = std::chars_format::general;
+  auto [ptr, ec] = std::from_chars(numberString.data(),
+                                   numberString.data() + numberString.length(),
+                                   output, format);
+
+  if (ec == std::errc()) {
+    return output;
+  }
+
+  if (ec == std::errc::result_out_of_range) {
+    throw std::out_of_range(
+        std::format("Number '{}' larger than specified type", numberString));
+  }
+
+  throw std::invalid_argument(
+      std::format("Number '{}' is not a number", numberString));
 }
 
 } // namespace util

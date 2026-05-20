@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 
 option(TIVA_EXPORT_COMPILE_COMMANDS "Whether to create compile_commands.json" ON)
 if(${TIVA_EXPORT_COMPILE_COMMANDS}) 
@@ -14,9 +14,15 @@ add_library(
    ./src/lexer.cpp
    ./src/lexer.hpp
    ./src/utility.hpp
+
+   ./src/debug.hpp
 )
 target_include_directories(tiva-compiler-lib PUBLIC src)
 target_compile_features(tiva-compiler-lib PUBLIC cxx_std_23)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+   target_link_libraries(tiva-compiler-lib PUBLIC stdc++exp)
+endif()
 
 
 # Compiler executable

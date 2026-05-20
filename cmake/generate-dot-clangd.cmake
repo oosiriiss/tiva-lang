@@ -9,9 +9,6 @@ set(CLANGD_DESTINATION "${CMAKE_SOURCE_DIR}/.clangd")
 file(WRITE "${CLANGD_GENERATED_FILE}" 
 "CompileFlags:\n"
 "  CompilationDatabase: ./build\n"
-"  Add:\n"
-"    - \"-isystem\"\n"
-"    - \"${COMPILER_INCLUDE_DIR}\"\n"
 )
 
 add_custom_target(generate-clangd

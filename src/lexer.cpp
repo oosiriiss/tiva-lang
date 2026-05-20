@@ -19,7 +19,7 @@ auto Lexer::nextToken() -> Token {
   skipWhitespace();
 
   if (auto tokenStringValue = readIdentifier()) {
-    source_.remove_prefix(tokenStringValue->size());
+    source_.remove_prefix(tokenStringValue->length());
 
     return Token{
         .value = std::move(tokenStringValue).value(),
@@ -33,7 +33,13 @@ auto Lexer::nextToken() -> Token {
     return Token{.value = c, .type = *symbolToken};
   }
 
-  return Token{.type = TokenType::Unknown};
+  if (auto numberToken = readNumber()) {
+    source_.remove_prefix(numberToken->length());
+    return Token{.value = std::move(numberToken).value(),
+                 .type = TokenType::Number};
+  }
+
+  return Token{.value = source_.substr(0, 16), .type = TokenType::Unknown};
 }
 
 [[nodiscard]] static constexpr auto validIdentifierChar(char c) -> bool {
@@ -68,7 +74,7 @@ auto Lexer::nextToken() -> Token {
 
   // Allowing negative numbers
   if (length < source_.length() && source_[length] == '-') {
-      ++length;
+    ++length;
   }
 
   // whole part
@@ -95,10 +101,9 @@ auto Lexer::nextToken() -> Token {
 [[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<TokenType> {
 
   static std::unordered_map<char, TokenType> tokens{
-      {'+', TokenType::Plus},
-      {'-', TokenType::Minus},
-      {'*', TokenType::Multiply},
-      {'/', TokenType::Divide},
+      {'+', TokenType::Plus},       {'-', TokenType::Minus},
+      {'*', TokenType::Multiply},   {'/', TokenType::Divide},
+      {'(', TokenType::ParenBegin}, {')', TokenType::ParenEnd},
   };
 
   if (source_.size() <= 0) {

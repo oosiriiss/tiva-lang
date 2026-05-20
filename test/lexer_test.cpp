@@ -139,3 +139,92 @@ TEST(LexerTest, NextToken_AdvancesStateUntilFinished) {
   EXPECT_TRUE(lexer.isFinished());
   EXPECT_LT(currentIteration, maxIterations);
 }
+
+// ---------------------------------------------------------
+// NOWE TESTY - DO DODANIA NA KONIEC PLIKU
+// ---------------------------------------------------------
+
+TEST(LexerTest, ReadSymbol_Parentheses) {
+  std::vector<std::pair<std::string_view, TokenType>> cases = {
+      {"(", TokenType::ParenBegin},
+      {")", TokenType::ParenEnd},
+      {"(x", TokenType::ParenBegin},
+      {") +", TokenType::ParenEnd}};
+
+  for (const auto &[input, expected] : cases) {
+    Lexer lexer(input);
+    auto result = lexer.readSymbol();
+    ASSERT_TRUE(result.has_value())
+        << "Failed to parse symbol for input: " << input;
+    EXPECT_EQ(result.value(), expected);
+  }
+}
+
+TEST(LexerTest, NextToken_ParsesParentheses) {
+  Lexer lexer("() ( )");
+
+  auto t1 = lexer.nextToken();
+  EXPECT_EQ(t1.type, TokenType::ParenBegin);
+  EXPECT_EQ(t1.value, "(");
+
+  auto t2 = lexer.nextToken();
+  EXPECT_EQ(t2.type, TokenType::ParenEnd);
+  EXPECT_EQ(t2.value, ")");
+
+  auto t3 = lexer.nextToken();
+  EXPECT_EQ(t3.type, TokenType::ParenBegin);
+  EXPECT_EQ(t3.value, "(");
+
+  auto t4 = lexer.nextToken();
+  EXPECT_EQ(t4.type, TokenType::ParenEnd);
+  EXPECT_EQ(t4.value, ")");
+}
+
+
+TEST(LexerTest, NextToken_ParsesMixedExpression) {
+  Lexer lexer("( foo + 42 ) * 3.14 / bar");
+
+  struct ExpectedToken {
+    TokenType type;
+    std::string_view value;
+  };
+
+  std::vector<ExpectedToken> expected = {
+      {TokenType::ParenBegin, "("},  {TokenType::Identifier, "foo"},
+      {TokenType::Plus, "+"},        {TokenType::Number, "42"},
+      {TokenType::ParenEnd, ")"},    {TokenType::Multiply, "*"},
+      {TokenType::Number, "3.14"},   {TokenType::Divide, "/"},
+      {TokenType::Identifier, "bar"}};
+
+  for (size_t i = 0; i < expected.size(); ++i) {
+    auto token = lexer.nextToken();
+    EXPECT_EQ(token.type, expected[i].type)
+        << "Mismatch at index " << i << " (value: " << expected[i].value << ")";
+    EXPECT_EQ(token.value, expected[i].value) << "Mismatch at index " << i;
+  }
+
+  EXPECT_TRUE(lexer.isFinished());
+}
+
+TEST(LexerTest, NextToken_ExpressionWithoutSpaces) {
+  Lexer lexer("a+12.5*b");
+
+  struct ExpectedToken {
+    TokenType type;
+    std::string_view value;
+  };
+
+  std::vector<ExpectedToken> expected = {{TokenType::Identifier, "a"},
+                                         {TokenType::Plus, "+"},
+                                         {TokenType::Number, "12.5"},
+                                         {TokenType::Multiply, "*"},
+                                         {TokenType::Identifier, "b"}};
+
+  for (size_t i = 0; i < expected.size(); ++i) {
+    auto token = lexer.nextToken();
+    EXPECT_EQ(token.type, expected[i].type) << "Mismatch at index " << i;
+    EXPECT_EQ(token.value, expected[i].value) << "Mismatch at index " << i;
+  }
+
+  EXPECT_TRUE(lexer.isFinished());
+}

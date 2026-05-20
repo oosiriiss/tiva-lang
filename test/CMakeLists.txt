@@ -21,3 +21,4 @@ endfunction()
 
 Register_Test(lexer_test)
 Register_Test(utility_test)
+Register_Test(parser_test)

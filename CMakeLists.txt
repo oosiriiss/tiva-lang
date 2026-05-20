@@ -15,6 +15,10 @@ add_library(
    ./src/lexer.hpp
    ./src/utility.hpp
 
+   ./src/parser/parser.cpp
+   ./src/parser/parser.hpp
+   ./src/parser/ast_nodes.hpp
+
    ./src/debug.hpp
 )
 target_include_directories(tiva-compiler-lib PUBLIC src)

@@ -78,6 +78,33 @@ TEST(LexerTest, ReadSymbol_InvalidSymbols) {
   }
 }
 
+TEST(LexerTest, ReadNumber_ValidIntegers) {
+  std::vector<std::string_view> cases = {"0", "42069", "-67"};
+
+  for (auto input : cases) {
+    Lexer lexer(input);
+    EXPECT_TRUE(lexer.readNumber().has_value());
+  }
+}
+
+TEST(LexerTest, ReadNumber_ValidDecimalNumbers) {
+  std::vector<std::string_view> cases = {"0.0", "-6.7", ".68", "10."};
+
+  for (auto input : cases) {
+    Lexer lexer(input);
+    EXPECT_TRUE(lexer.readNumber().has_value());
+  }
+}
+
+TEST(LexerTest, ReadNumber_InvalidNumbers) {
+  std::vector<std::string_view> cases = {"0.0.", "-0-", "0-", "0-6.7", ".6.7"};
+
+  for (auto input : cases) {
+    Lexer lexer(input);
+    EXPECT_TRUE(lexer.readNumber().has_value());
+  }
+}
+
 TEST(LexerTest, NextToken_ParsesSymbolSequence) {
   Lexer lexer("+-*/");
 
@@ -97,7 +124,6 @@ TEST(LexerTest, NextToken_ParsesSymbolSequence) {
   EXPECT_EQ(t4.type, TokenType::Divide);
   EXPECT_EQ(t4.value, "/");
 }
-
 
 TEST(LexerTest, NextToken_AdvancesStateUntilFinished) {
   Lexer lexer("Hello my name is   ");

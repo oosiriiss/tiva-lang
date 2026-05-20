@@ -9,6 +9,10 @@ using util::isDigit;
 using util::isLetter;
 using util::isWhitespace;
 
+enum class State {
+  Start,
+};
+
 Lexer::Lexer(std::string_view source) noexcept : source_{source} {}
 
 auto Lexer::nextToken() -> Token {
@@ -55,6 +59,37 @@ auto Lexer::nextToken() -> Token {
 
   return std::optional<std::string_view>{std::in_place_t{}, source_.data(),
                                          identifierLength};
+}
+
+[[nodiscard]] auto Lexer::readNumber() noexcept
+    -> std::optional<std::string_view> {
+
+  size_t length = 0;
+
+  // Allowing negative numbers
+  if (length < source_.length() && source_[length] == '-') {
+      ++length;
+  }
+
+  // whole part
+  while (length < source_.length() && isDigit(source_[length])) {
+    ++length;
+  }
+
+  // Decimal part of number
+  if (length < source_.length() && source_[length] == '.') {
+    ++length;
+    while (length < source_.length() && isDigit(source_[length])) {
+      ++length;
+    }
+  }
+
+  if (length == 0) {
+    return std::nullopt;
+  }
+
+  return std::optional<std::string_view>{std::in_place_t{}, source_.data(),
+                                         length};
 }
 
 [[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<TokenType> {

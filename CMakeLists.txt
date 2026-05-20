@@ -21,8 +21,41 @@ add_library(
 
    ./src/debug.hpp
 )
+
+
+# Adding LLVM
+find_package(ZLIB REQUIRED)
+find_package(LLVM REQUIRED CONFIG)
+
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+list(APPEND CMAKE_MODULE_PATH ${LLVM_DIR})
+include(AddLLVM)
+
+message(STATUS "LLVM Include dirs: ${LLVM_INCLUDE_DIRS}")
+message(STATUS "LLVM definitions: ${LLVM_DEFINITIONS}")
+
+
 target_include_directories(tiva-compiler-lib PUBLIC src)
+if(LLVM_INCLUDE_DIRS) 
+   message(STATUS "Adding LLVM include directories to tiva-compiler-lib")
+   foreach(LLVM_DIR IN LISTS LLVM_INCLUDE_DIRS)
+      # So that my lsp can actually see llvm headers on msys2 windows
+      # Everything other that I know of failed
+      target_compile_options(tiva-compiler-lib PUBLIC "-idirafter" "${LLVM_DIR}") 
+    endforeach()
+endif()
+
+
 target_compile_features(tiva-compiler-lib PUBLIC cxx_std_23)
+
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+target_compile_options(tiva-compiler-lib PUBLIC ${LLVM_DEFINITIONS_LIST})
+
+llvm_map_components_to_libnames(llvm_libs core native)
+target_link_libraries(tiva-compiler-lib PUBLIC ${llvm_libs})
+
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
    target_link_libraries(tiva-compiler-lib PUBLIC stdc++exp)

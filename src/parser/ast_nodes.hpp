@@ -2,12 +2,14 @@
 #pragma once
 #include "lexer.hpp"
 #include "utility.hpp"
+#include <llvm/IR/Value.h>
 #include <memory>
 #include <string_view>
 
 class AstNode {
 public:
   virtual ~AstNode() = default;
+  virtual auto codegen() -> llvm::Value * = 0;
 };
 
 struct BinaryExprAstNode : public AstNode {
@@ -26,12 +28,10 @@ struct NumberAstNode : public AstNode {
 
   constexpr NumberAstNode(std::string_view numStr)
       : val{util::toNumber<long double>(numStr)} {}
-
 };
 
 struct VariableAstNode : public AstNode {
   std::string name;
 
   constexpr VariableAstNode(std::string_view name) : name{name} {}
-
 };

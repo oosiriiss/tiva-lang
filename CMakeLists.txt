@@ -47,3 +47,6 @@ if(${TIVA_COMPILE_TESTS})
    add_subdirectory(./test/)
 
 endif()
+
+
+include(./cmake/generate-dot-clangd.cmake)

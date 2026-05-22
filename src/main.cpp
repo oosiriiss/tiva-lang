@@ -4,11 +4,11 @@
 int main() {
   initalizeLlvmModule();
 
-  std::string_view exampleCode = "1+2+3+4+5+6";
+  std::string_view exampleCode = "fn testFn(a,b,c) (a + b + c)";
 
   Parser parser(exampleCode);
 
-  auto res = parser.parseExpression();
+  auto res = parser.parseFunction();
   auto value = res->codegen();
 
   printGeneratedCode();

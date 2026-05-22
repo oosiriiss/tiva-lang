@@ -2,6 +2,7 @@
 #pragma once
 #include "lexer.hpp"
 #include "utility.hpp"
+#include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
 #include <memory>
 #include <string_view>
@@ -30,6 +31,7 @@ struct VariableAstNode : public AstNode {
   auto codegen() const -> llvm::Value * override;
 };
 
+
 struct BinaryExprAstNode : public AstNode {
 
   TokenType op;
@@ -40,4 +42,25 @@ struct BinaryExprAstNode : public AstNode {
                               std::unique_ptr<AstNode> rhs)
       : op{op}, lhs{std::move(lhs)}, rhs{std::move(rhs)} {}
   auto codegen() const -> llvm::Value * override;
+};
+
+
+struct FunctionPrototype {
+  std::string name;
+  std::vector<std::string> args;
+
+  constexpr FunctionPrototype(std::string_view name,
+                              std::vector<std::string> &&argNames)
+      : name{name}, args{argNames} {}
+  auto codegen() const -> llvm::Function *;
+};
+
+struct Function {
+  std::unique_ptr<FunctionPrototype> prototype;
+  std::unique_ptr<AstNode> body;
+
+  constexpr Function(std::unique_ptr<FunctionPrototype> prototype,
+                     std::unique_ptr<AstNode> expression)
+      : prototype{std::move(prototype)}, body{std::move(expression)} {}
+  auto codegen() const -> llvm::Function *;
 };

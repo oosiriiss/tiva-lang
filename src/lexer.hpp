@@ -12,6 +12,8 @@ enum class TokenType {
   Multiply,
   ParenBegin,
   ParenEnd,
+  Function,
+  Comma,
   Unknown,
   __SizeGuard,
 };
@@ -28,6 +30,8 @@ public:
   [[nodiscard]] auto nextToken() -> Token;
   [[nodiscard]] auto readIdentifier() noexcept
       -> std::optional<std::string_view>;
+  [[nodiscard]] auto parseKeyword(std::string_view identifierString) noexcept
+      -> std::optional<Token>;
   [[nodiscard]] auto readNumber() noexcept -> std::optional<std::string_view>;
   [[nodiscard]] auto readSymbol() noexcept -> std::optional<TokenType>;
   void skipWhitespace() noexcept;
@@ -67,6 +71,12 @@ struct std::formatter<TokenType> : std::formatter<std::string_view> {
       break;
     case TokenType::ParenEnd:
       name = "ParenEnd";
+      break;
+    case TokenType::Function:
+      name = "Function";
+      break;
+    case TokenType::Comma:
+      name = "Comma";
       break;
     case TokenType::Unknown:
       name = "Unknown";

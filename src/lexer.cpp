@@ -1,7 +1,6 @@
 #include "lexer.hpp"
 #include "logzy/logzy.hpp"
 #include "utility.hpp"
-#include <array>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -24,6 +23,12 @@ auto Lexer::nextToken() -> Token {
 
   if (auto tokenStringValue = readIdentifier()) {
     source_.remove_prefix(tokenStringValue->length());
+
+    if (auto keywordToken = parseKeyword(*tokenStringValue)) {
+      logzy::debug("Token is a keyword '{}'={}", *tokenStringValue,
+                   keywordToken->value);
+      return *keywordToken;
+    }
 
     logzy::debug("Token is an identifier '{}'", *tokenStringValue);
     return Token{
@@ -48,6 +53,23 @@ auto Lexer::nextToken() -> Token {
 
   logzy::warn("Couldn't parse '{}' as a token.", source_.substr(0, 16));
   return Token{.value = source_.substr(0, 16), .type = TokenType::Unknown};
+}
+
+[[nodiscard]] auto
+Lexer::parseKeyword(std::string_view identifierString) noexcept
+    -> std::optional<Token> {
+
+  static std::unordered_map<std::string_view, TokenType> keywords{
+      {"fn", TokenType::Function}};
+
+  auto iter = keywords.find(identifierString);
+  if (iter == keywords.end()) {
+    logzy::trace("unknown keyword '{}'", identifierString);
+    return std::nullopt;
+  }
+
+  return std::optional<Token>{std::in_place_t{}, identifierString,
+                              iter->second};
 }
 
 [[nodiscard]] static constexpr auto validIdentifierChar(char c) -> bool {
@@ -116,7 +138,8 @@ auto Lexer::nextToken() -> Token {
       {'+', TokenType::Plus},       {'-', TokenType::Minus},
       {'*', TokenType::Multiply},   {'/', TokenType::Divide},
       {'(', TokenType::ParenBegin}, {')', TokenType::ParenEnd},
-  };
+      {',', TokenType::Comma}
+   };
 
   if (source_.size() <= 0) {
     return std::nullopt;

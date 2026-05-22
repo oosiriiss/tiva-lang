@@ -1,7 +1,9 @@
 #include "parser.hpp"
 #include "debug.hpp"
+#include "lexer.hpp"
 #include "logzy/logzy.hpp"
 #include <cassert>
+#include <cstddef>
 #include <unordered_map>
 #include <utility>
 
@@ -91,6 +93,53 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   }
   logzy::trace("Parsing expression's right side");
   return parseBinaryExpressionRhs(0, std::move(lhs));
+}
+
+[[nodiscard]] auto Parser::parseFunctionPrototype()
+    -> std::unique_ptr<FunctionPrototype> {
+  ASSERT_IDENTIFIER_TOKEN;
+  std::string_view functionName = currentToken_.value;
+  nextToken();
+
+  ASSERT_TOKEN_VALUE("(");
+
+  std::vector<std::string> argNames;
+  nextToken();
+  while (currentToken_.type == TokenType::Identifier) {
+    argNames.emplace_back(currentToken_.value);
+    nextToken();
+
+    if (currentToken_.type == TokenType::Comma) {
+      nextToken();
+    } else if (currentToken_.type == TokenType::ParenEnd) {
+      break;
+    } else {
+      logzy::error("Expected ',' or ')', but got {}", currentToken_);
+      return nullptr;
+    }
+  }
+
+  ASSERT_TOKEN_VALUE(")");
+  nextToken();
+
+  return std::make_unique<FunctionPrototype>(functionName, std::move(argNames));
+}
+[[nodiscard]] auto Parser::parseFunction() -> std::unique_ptr<Function> {
+  // Skipping fn
+  nextToken();
+
+  auto prototype = parseFunctionPrototype();
+  if (prototype == nullptr) {
+    return nullptr;
+  }
+
+  auto expression = parseExpression();
+  if (expression == nullptr) {
+    return nullptr;
+  }
+
+  return std::make_unique<Function>(std::move(prototype),
+                                    std::move(expression));
 }
 
 [[nodiscard]] auto

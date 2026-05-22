@@ -4,12 +4,15 @@
 int main() {
   initalizeLlvmModule();
 
-  std::string_view exampleCode = "fn testFn(a,b,c) (a + b + c)";
+  std::string_view exampleCode =
+      "externFn(x,y,z) fn testFn(a,b,c) (a + b + c + externFn(a,b,c))";
 
   Parser parser(exampleCode);
 
-  auto res = parser.parseFunction();
-  auto value = res->codegen();
+  auto res1 = parser.parseFunctionPrototype();
+  auto res2 = parser.parseFunction();
+  res1->codegen();
+  res2->codegen();
 
   printGeneratedCode();
 

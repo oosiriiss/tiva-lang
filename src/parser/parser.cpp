@@ -4,6 +4,7 @@
 #include "logzy/logzy.hpp"
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <unordered_map>
 #include <utility>
 
@@ -64,10 +65,42 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   ASSERT_IDENTIFIER_TOKEN
 
   logzy::trace("Parsing identifier '{}'", currentToken_.value);
-  auto variable = std::make_unique<VariableAstNode>(currentToken_.value);
+  std::string_view identifier = currentToken_.value;
   nextToken();
 
-  return variable;
+  // Normal ident
+  if (currentToken_.type != TokenType::ParenBegin) {
+    logzy::trace("Was a normal identifier");
+    return std::make_unique<VariableAstNode>(identifier);
+  }
+
+  nextToken();
+  std::vector<std::unique_ptr<AstNode>> args;
+  if (currentToken_.type != TokenType::ParenEnd) {
+
+    while (true) {
+      if (auto arg = parseExpression()) {
+        args.emplace_back(std::move(arg));
+      } else {
+        return nullptr;
+      }
+
+      if (currentToken_.type == TokenType::ParenEnd) {
+        break;
+      }
+
+      if (currentToken_.type != TokenType::Comma) {
+        logzy::error("Expected ',' or ')' in function '{}' arguments",
+                     identifier);
+        return nullptr;
+      }
+
+      // Skipping comma
+      nextToken();
+    }
+  }
+
+  return std::make_unique<CallAstNode>(identifier, std::move(args));
 }
 
 [[nodiscard]] auto Parser::parseParentheses() -> std::unique_ptr<AstNode> {

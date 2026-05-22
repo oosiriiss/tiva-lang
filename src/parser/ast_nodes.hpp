@@ -31,6 +31,15 @@ struct VariableAstNode : public AstNode {
   auto codegen() const -> llvm::Value * override;
 };
 
+struct CallAstNode : public AstNode {
+  std::string toCall;
+  std::vector<std::unique_ptr<AstNode>> args;
+
+  constexpr CallAstNode(std::string_view toCall,
+                        std::vector<std::unique_ptr<AstNode>> &&args)
+      : toCall{toCall}, args{std::move(args)} {}
+  auto codegen() const -> llvm::Value * override;
+};
 
 struct BinaryExprAstNode : public AstNode {
 
@@ -43,7 +52,6 @@ struct BinaryExprAstNode : public AstNode {
       : op{op}, lhs{std::move(lhs)}, rhs{std::move(rhs)} {}
   auto codegen() const -> llvm::Value * override;
 };
-
 
 struct FunctionPrototype {
   std::string name;

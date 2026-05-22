@@ -51,6 +51,37 @@ auto VariableAstNode::codegen() const -> llvm::Value * {
   return val->second;
 }
 
+auto CallAstNode::codegen() const -> llvm::Value * {
+  logzy::trace("generating code for call to '{}' with args.count()={}", toCall,
+               args.size());
+
+  llvm::Function *functionToCall = llvmModule->getFunction(toCall);
+  if (functionToCall == nullptr) {
+    logzy::error("Trying to call undefined function '{}'", toCall);
+    return nullptr;
+  }
+
+  if (functionToCall->arg_size() != args.size()) {
+    logzy::error("Invalid number of arguments to the function '{}'", toCall);
+    return nullptr;
+  }
+
+  std::vector<llvm::Value *> argValues;
+  argValues.reserve(args.size());
+  for (size_t i = 0; i < args.size(); ++i) {
+
+    auto *argValue = args[i]->codegen();
+    if (argValue == nullptr) {
+      logzy::debug("Couldnt generate code for arg[{}] of function {}", i,
+                   toCall);
+      return nullptr;
+    }
+    argValues.emplace_back(argValue);
+  }
+
+  return llvmBuilder->CreateCall(functionToCall, argValues, "calltmp");
+}
+
 auto BinaryExprAstNode::codegen() const -> llvm::Value * {
   logzy::trace("generating code for binary expression with operator'{}'", op);
 

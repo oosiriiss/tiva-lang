@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+#include "logzy/logzy.hpp"
 #include "utility.hpp"
 #include <array>
 #include <string_view>
@@ -16,11 +17,15 @@ enum class State {
 Lexer::Lexer(std::string_view source) noexcept : source_{source} {}
 
 auto Lexer::nextToken() -> Token {
+  logzy::debug("Trying to parse next token");
+  logzy::trace("Skipping whitespace");
   skipWhitespace();
+  logzy::trace("source[0..16]='{}'", source_.substr(0, 16));
 
   if (auto tokenStringValue = readIdentifier()) {
     source_.remove_prefix(tokenStringValue->length());
 
+    logzy::debug("Token is an identifier '{}'", *tokenStringValue);
     return Token{
         .value = std::move(tokenStringValue).value(),
         .type = TokenType::Identifier,
@@ -30,15 +35,18 @@ auto Lexer::nextToken() -> Token {
   if (auto symbolToken = readSymbol()) {
     auto c = source_.substr(0, 1);
     source_.remove_prefix(1);
+    logzy::debug("Token is a symbol '{}'", *symbolToken);
     return Token{.value = c, .type = *symbolToken};
   }
 
   if (auto numberToken = readNumber()) {
     source_.remove_prefix(numberToken->length());
+    logzy::debug("Token is a number '{}'", *numberToken);
     return Token{.value = std::move(numberToken).value(),
                  .type = TokenType::Number};
   }
 
+  logzy::warn("Couldn't parse '{}' as a token.", source_.substr(0, 16));
   return Token{.value = source_.substr(0, 16), .type = TokenType::Unknown};
 }
 
@@ -54,6 +62,8 @@ auto Lexer::nextToken() -> Token {
     -> std::optional<std::string_view> {
 
   if (source_.size() <= 0 || !validIdentifierFirstChar(source_[0])) {
+    logzy::trace("'{}' is not a valid identifier beginning",
+                 source_.substr(0, 1));
     return std::nullopt;
   }
 
@@ -74,6 +84,7 @@ auto Lexer::nextToken() -> Token {
 
   // Allowing negative numbers
   if (length < source_.length() && source_[length] == '-') {
+    logzy::trace("Negative number");
     ++length;
   }
 
@@ -91,6 +102,7 @@ auto Lexer::nextToken() -> Token {
   }
 
   if (length == 0) {
+    logzy::trace("Not a number");
     return std::nullopt;
   }
 
@@ -114,8 +126,10 @@ auto Lexer::nextToken() -> Token {
 
   auto iter = tokens.find(c);
   if (iter == tokens.end()) {
+    logzy::trace("unknown symbol '{}'", c);
     return std::nullopt;
   }
+
   return iter->second;
 }
 

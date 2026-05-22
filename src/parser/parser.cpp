@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include "debug.hpp"
+#include "logzy/logzy.hpp"
 #include <cassert>
 #include <unordered_map>
 #include <utility>
@@ -16,7 +17,6 @@ static constexpr auto getPrecedence(TokenType type) -> int {
   if (iter == precedences.end()) {
     return -1;
   }
-
   return iter->second;
 }
 
@@ -29,7 +29,8 @@ static constexpr auto getPrecedence(TokenType type) -> int {
   case TokenType::ParenBegin:
     return parseParentheses();
   default:
-    DEBUG_ASSERT(false, std::format("Unsupported token {}", currentToken_));
+    logzy::critical("Unsupported token {}", currentToken_);
+    DEBUG_ASSERT(false);
     break;
   }
 }
@@ -51,7 +52,7 @@ static constexpr auto getPrecedence(TokenType type) -> int {
 [[nodiscard]]
 auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   ASSERT_NUMBER_TOKEN;
-
+  logzy::trace("Parsing number '{}'", currentToken_.value);
   auto num = std::make_unique<NumberAstNode>(currentToken_.value);
   nextToken();
   return num;
@@ -60,6 +61,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
 [[nodiscard]] auto Parser::parseIdentifier() -> std::unique_ptr<AstNode> {
   ASSERT_IDENTIFIER_TOKEN
 
+  logzy::trace("Parsing identifier '{}'", currentToken_.value);
   auto variable = std::make_unique<VariableAstNode>(currentToken_.value);
   nextToken();
 
@@ -67,6 +69,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
 }
 
 [[nodiscard]] auto Parser::parseParentheses() -> std::unique_ptr<AstNode> {
+  logzy::trace("Parsing parentheses");
   ASSERT_TOKEN_VALUE("(");
   nextToken();
   auto expr = parseExpression();
@@ -81,11 +84,12 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
 }
 
 [[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
+  logzy::trace("Parsing expression's left side");
   auto lhs = parsePrimary();
   if (lhs == nullptr) {
     return lhs;
   }
-
+  logzy::trace("Parsing expression's right side");
   return parseBinaryExpressionRhs(0, std::move(lhs));
 }
 
@@ -112,6 +116,10 @@ Parser::parseBinaryExpressionRhs(int expressionPrecedence,
 
     int nextPrecedence = getPrecedence(currentToken_.type);
     if (tokenPrecedence < nextPrecedence) {
+
+      logzy::trace(
+          "next operator has higher precedence curr: {}={} vs next: {}={}",
+          binOp, tokenPrecedence, currentToken_.type, nextPrecedence);
 
       rhs = parseBinaryExpressionRhs(tokenPrecedence + 1, std::move(rhs));
       if (rhs == nullptr) {

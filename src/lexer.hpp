@@ -17,8 +17,8 @@ enum class TokenType {
 };
 
 struct Token {
-  std::string_view value;
-  TokenType type;
+  std::string_view value = "UNINITIALZIED";
+  TokenType type = TokenType::Unknown;
 };
 
 struct Lexer {

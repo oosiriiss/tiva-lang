@@ -26,6 +26,7 @@ add_library(
    ./src/parser/parser.cpp
    ./src/parser/parser.hpp
    ./src/parser/ast_nodes.hpp
+   ./src/parser/ast_nodes.cpp
 
    ./src/debug.hpp
 )

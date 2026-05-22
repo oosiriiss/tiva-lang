@@ -3,11 +3,11 @@
 #include "lexer.hpp"
 #include <memory>
 
-
-
 class Parser {
 public:
-  constexpr Parser(std::string_view source) noexcept : lexer_{source} {};
+  constexpr Parser(std::string_view source) noexcept : lexer_{source} {
+    nextToken();
+  };
 
   [[nodiscard]] auto parsePrimary() -> std::unique_ptr<AstNode>;
 
@@ -23,5 +23,6 @@ public:
 
 private:
   Lexer lexer_;
-  Token currentToken_; // Current Token produced by the lexer.
+  // Current Token produced by the lexer.
+  Token currentToken_;
 };

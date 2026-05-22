@@ -7,6 +7,14 @@ endif()
 
 project(tiva-lang)
 
+include(FetchContent)
+FetchContent_Declare(
+   logzy
+   GIT_REPOSITORY https://github.com/oosiriiss/logzy
+   GIT_TAG 075928d08bc97f05d10e1d4def802e2bf0792fc4 # 0.1.1
+)
+FetchContent_MakeAvailable(logzy)
+
 # Compiler library
 add_library(
    tiva-compiler-lib
@@ -54,7 +62,7 @@ separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_options(tiva-compiler-lib PUBLIC ${LLVM_DEFINITIONS_LIST})
 
 llvm_map_components_to_libnames(llvm_libs core native)
-target_link_libraries(tiva-compiler-lib PUBLIC ${llvm_libs})
+target_link_libraries(tiva-compiler-lib PUBLIC ${llvm_libs} logzy::logzy)
 
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

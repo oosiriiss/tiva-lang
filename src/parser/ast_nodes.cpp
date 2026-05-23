@@ -5,6 +5,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <llvm/ADT/APFloat.h>
+#include <llvm/Analysis/CGSCCPassManager.h>
+#include <llvm/Analysis/LoopAnalysisManager.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -12,9 +14,13 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/NoFolder.h>
+#include <llvm/IR/PassInstrumentation.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/StandardInstrumentations.h>
 #include <llvm/Support/CodeGen.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
@@ -22,12 +28,29 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/TargetParser/Host.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <llvm/Transforms/Utils/Mem2Reg.h>
 #include <logzy/logzy.hpp>
 #include <utility>
 
 static std::unique_ptr<llvm::LLVMContext> llvmContext;
 static std::unique_ptr<llvm::IRBuilder<llvm::NoFolder>> llvmBuilder;
 static std::unique_ptr<llvm::Module> llvmModule;
+static std::unique_ptr<llvm::FunctionPassManager> llvmFunctionPassManager;
+static std::unique_ptr<llvm::ModuleAnalysisManager> llvmModuleAnalysisManager;
+static std::unique_ptr<llvm::CGSCCAnalysisManager> llvmCallGraphAnalysisManager;
+static std::unique_ptr<llvm::FunctionAnalysisManager>
+    llvmFunctionAnalysisManager;
+static std::unique_ptr<llvm::LoopAnalysisManager> llvmLoopAnalysisManager;
+
+static std::unique_ptr<llvm::PassInstrumentationCallbacks>
+    llmvPassInstrumentationCallbacks;
+static std::unique_ptr<llvm::StandardInstrumentations> llvmPassInstrumentation;
+
 static std::unordered_map<std::string, llvm::AllocaInst *> scopeValues;
 
 void pushScope() {}
@@ -48,6 +71,47 @@ void initalizeLlvmModule() {
   llvmContext = std::make_unique<llvm::LLVMContext>();
   llvmModule = std::make_unique<llvm::Module>("Main Module", *llvmContext);
   llvmBuilder = std::make_unique<llvm::IRBuilder<llvm::NoFolder>>(*llvmContext);
+
+  llvmModuleAnalysisManager = std::make_unique<llvm::ModuleAnalysisManager>();
+  llvmCallGraphAnalysisManager = std::make_unique<llvm::CGSCCAnalysisManager>();
+  llvmFunctionAnalysisManager =
+      std::make_unique<llvm::FunctionAnalysisManager>();
+  llvmLoopAnalysisManager = std::make_unique<llvm::LoopAnalysisManager>();
+
+  llmvPassInstrumentationCallbacks =
+      std::make_unique<llvm::PassInstrumentationCallbacks>();
+  constexpr bool debugLogging = true;
+  llvmPassInstrumentation = std::make_unique<llvm::StandardInstrumentations>(
+      *llvmContext, debugLogging);
+  llvmPassInstrumentation->registerCallbacks(*llmvPassInstrumentationCallbacks);
+
+  // Transform passes
+  llvmFunctionPassManager = std::make_unique<llvm::FunctionPassManager>();
+  llvmFunctionPassManager->addPass(
+      llvm::PromotePass()); // mem2reg: promote allocas to registers
+  llvmFunctionPassManager->addPass(
+      llvm::InstCombinePass()); // reduces instruction count
+  llvmFunctionPassManager->addPass(
+      llvm::ReassociatePass()); // rearranges expression trees so that they can
+                                // be more efficiently grouped together i.e.
+                                // before: "4 + (x + 5)" after: "x + (4+5) -> x
+                                // + 9"
+  llvmFunctionPassManager->addPass(
+      llvm::GVNPass()); // checks if we are recalculating the same expression,
+                        // if yes makes the result be reused
+  llvmFunctionPassManager->addPass(
+      llvm::SimplifyCFGPass()); // remove dead code, merge blocks that dont need
+                                // to be separated, simplifies control flow
+                                // graph
+
+  // Analysis passes
+  llvm::PassBuilder passBuilder;
+  passBuilder.registerModuleAnalyses(*llvmModuleAnalysisManager);
+  passBuilder.registerFunctionAnalyses(*llvmFunctionAnalysisManager);
+  passBuilder.crossRegisterProxies(
+      *llvmLoopAnalysisManager, *llvmFunctionAnalysisManager,
+      *llvmCallGraphAnalysisManager, *llvmModuleAnalysisManager);
+
   // Global scope
   // scopeValues.emplace_back(std::unordered_map<std::string, llvm::Value *>());
 }
@@ -304,5 +368,7 @@ auto Function::codegen() const -> llvm::Function * {
   llvmBuilder->CreateRet(returnValue);
 
   llvm::verifyFunction(*func);
+
+  llvmFunctionPassManager->run(*func, *llvmFunctionAnalysisManager);
   return func;
 }

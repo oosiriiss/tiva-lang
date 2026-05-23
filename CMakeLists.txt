@@ -62,7 +62,7 @@ target_compile_features(tiva-compiler-lib PUBLIC cxx_std_23)
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_options(tiva-compiler-lib PUBLIC ${LLVM_DEFINITIONS_LIST})
 
-llvm_map_components_to_libnames(llvm_libs core native)
+llvm_map_components_to_libnames(llvm_libs core native passes analysis support)
 target_link_libraries(tiva-compiler-lib PUBLIC ${llvm_libs} logzy::logzy)
 
 

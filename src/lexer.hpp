@@ -16,6 +16,7 @@ enum class TokenType {
   Comma,
   CurlyBegin,
   CurlyEnd,
+  Assign,
   Unknown,
   __SizeGuard,
 };
@@ -86,6 +87,9 @@ struct std::formatter<TokenType> : std::formatter<std::string_view> {
       break;
     case TokenType::CurlyEnd:
       name = "CurlyEnd";
+      break;
+    case TokenType::Assign:
+      name = "Assign";
       break;
     case TokenType::Unknown:
       name = "Unknown";

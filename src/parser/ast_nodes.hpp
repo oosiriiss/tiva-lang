@@ -11,6 +11,9 @@ void initalizeLlvmModule();
 void printGeneratedCode();
 void emitObjectFile(std::string_view fileName);
 
+void pushScope();
+void popScope();
+
 class AstNode {
 public:
   virtual ~AstNode() = default;
@@ -29,6 +32,16 @@ struct VariableAstNode : public AstNode {
   std::string name;
 
   constexpr VariableAstNode(std::string_view name) : name{name} {}
+  auto codegen() const -> llvm::Value * override;
+};
+
+struct AssignmentAstNode : public AstNode {
+  std::string name;
+  std::unique_ptr<AstNode> rhs;
+
+  constexpr AssignmentAstNode(std::string_view name,
+                              std::unique_ptr<AstNode> rhs)
+      : name{name}, rhs{std::move(rhs)} {}
   auto codegen() const -> llvm::Value * override;
 };
 

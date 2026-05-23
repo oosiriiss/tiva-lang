@@ -1,5 +1,6 @@
 #include "ast_nodes.hpp"
 #include "debug.hpp"
+#include "lexer.hpp"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -8,6 +9,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/NoFolder.h>
 #include <llvm/IR/Value.h>
@@ -26,12 +28,28 @@
 static std::unique_ptr<llvm::LLVMContext> llvmContext;
 static std::unique_ptr<llvm::IRBuilder<llvm::NoFolder>> llvmBuilder;
 static std::unique_ptr<llvm::Module> llvmModule;
-static std::unordered_map<std::string, llvm::Value *> scopeValues;
+static std::unordered_map<std::string, llvm::AllocaInst *> scopeValues;
+
+void pushScope() {}
+
+void popScope() {}
+
+// Allocates variable on the stack in the entry block of the function
+static llvm::AllocaInst *entryBlockAlloca(llvm::Function *function,
+                                          llvm::StringRef variableName) {
+  llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(),
+                                 function->getEntryBlock().begin());
+
+  return entryBuilder.CreateAlloca(llvm::Type::getInt32Ty(*llvmContext),
+                                   nullptr, variableName);
+}
 
 void initalizeLlvmModule() {
   llvmContext = std::make_unique<llvm::LLVMContext>();
   llvmModule = std::make_unique<llvm::Module>("Main Module", *llvmContext);
   llvmBuilder = std::make_unique<llvm::IRBuilder<llvm::NoFolder>>(*llvmContext);
+  // Global scope
+  // scopeValues.emplace_back(std::unordered_map<std::string, llvm::Value *>());
 }
 
 void printGeneratedCode() { llvmModule->print(llvm::errs(), nullptr); }
@@ -99,7 +117,22 @@ auto VariableAstNode::codegen() const -> llvm::Value * {
     logzy::warn("variable not found in this scope");
     return nullptr;
   }
-  return val->second;
+
+  return llvmBuilder->CreateLoad(val->second->getAllocatedType(), val->second,
+                                 name.c_str());
+}
+
+auto AssignmentAstNode::codegen() const -> llvm::Value * {
+  llvm::Function *parentFunction = llvmBuilder->GetInsertBlock()->getParent();
+  llvm::AllocaInst *var = entryBlockAlloca(parentFunction, name);
+
+  auto rhsValue = this->rhs->codegen();
+  if (rhsValue == nullptr) {
+    logzy::error("Couldn't generate code for assginemnt rhs");
+    return nullptr;
+  }
+
+  return llvmBuilder->CreateStore(var, rhsValue);
 }
 
 auto CallAstNode::codegen() const -> llvm::Value * {
@@ -135,6 +168,40 @@ auto CallAstNode::codegen() const -> llvm::Value * {
 
 auto BinaryExprAstNode::codegen() const -> llvm::Value * {
   logzy::trace("generating code for binary expression with operator'{}'", op);
+
+  // Special case for assginemnts
+
+  // TODO :: Separate AssignemntAstNode
+  if (op == TokenType::Assign) {
+    VariableAstNode *var = dynamic_cast<VariableAstNode *>(lhs.get());
+    if (var == nullptr) {
+      logzy::error("Left side of assignment must be a variable");
+      return nullptr;
+    }
+
+    llvm::Value *right = rhs->codegen();
+    if (right == nullptr) {
+      logzy::error("Couldn't generate code for right handside of assignemnt");
+      return nullptr;
+    }
+
+    auto varAllocated = scopeValues.find(var->name);
+    if (varAllocated == scopeValues.end()) { // Definition of variable
+      logzy::debug("Allocating variable '{}'", var->name);
+      auto *allocated = entryBlockAlloca(
+          llvmBuilder->GetInsertBlock()->getParent(), var->name);
+      if (allocated == nullptr) {
+        logzy::error("Couldn't allocate entry variable '{}'", var->name);
+        return nullptr;
+      }
+      scopeValues[var->name] = allocated;
+      llvmBuilder->CreateStore(right, allocated);
+    } else {
+
+      llvmBuilder->CreateStore(right, varAllocated->second);
+    }
+    return right;
+  }
 
   llvm::Value *left = lhs->codegen();
   llvm::Value *right = rhs->codegen();
@@ -222,7 +289,9 @@ auto Function::codegen() const -> llvm::Function * {
   scopeValues.clear();
 
   for (auto &arg : func->args()) {
-    scopeValues[std::string(arg.getName())] = &arg;
+    auto allocated = entryBlockAlloca(func, arg.getName());
+    llvmBuilder->CreateStore(&arg, allocated);
+    scopeValues[std::string(arg.getName())] = allocated;
   }
 
   auto *returnValue = body->codegen();

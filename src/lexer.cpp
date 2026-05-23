@@ -135,11 +135,18 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
 [[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<TokenType> {
 
   static std::unordered_map<char, TokenType> tokens{
-      {'+', TokenType::Plus},       {'-', TokenType::Minus},
-      {'*', TokenType::Multiply},   {'/', TokenType::Divide},
-      {'(', TokenType::ParenBegin}, {')', TokenType::ParenEnd},
-      {',', TokenType::Comma},      {'{', TokenType::CurlyBegin},
-      {'}', TokenType::CurlyEnd}};
+      {'+', TokenType::Plus},
+      {'-', TokenType::Minus},
+      {'*', TokenType::Multiply},
+      {'/', TokenType::Divide},
+      {'(', TokenType::ParenBegin},
+      {')', TokenType::ParenEnd},
+      {',', TokenType::Comma},
+      {'{', TokenType::CurlyBegin},
+      {'}', TokenType::CurlyEnd},
+      {'=', TokenType::Assign}
+
+  };
 
   if (source_.size() <= 0) {
     return std::nullopt;

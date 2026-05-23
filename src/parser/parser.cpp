@@ -9,8 +9,11 @@
 #include <utility>
 
 static std::unordered_map<TokenType, int> precedences{
-    {TokenType::Plus, 10},   {TokenType::Minus, 10},
-    {TokenType::Multiply, 20}, {TokenType::Divide, 20},
+    {TokenType::Assign, 2},
+    {TokenType::Plus, 10},
+    {TokenType::Minus, 10},
+    {TokenType::Multiply, 20},
+    {TokenType::Divide, 20},
 };
 
 static constexpr auto getPrecedence(TokenType type) -> int {
@@ -64,15 +67,13 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
 
   logzy::trace("Parsing identifier '{}'", currentToken_.value);
   std::string_view identifier = currentToken_.value;
-  nextToken();
+  nextToken(); // Skipping identifier
 
   // Normal ident
   if (currentToken_.type != TokenType::ParenBegin) {
     logzy::trace("Was a normal identifier");
     return std::make_unique<VariableAstNode>(identifier);
   }
-
-  nextToken();
 
   if (currentToken_.type == TokenType::ParenBegin) { // Call
     std::vector<std::unique_ptr<AstNode>> args;
@@ -97,9 +98,23 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
       // Skipping comma
       nextToken();
     }
+    return std::make_unique<CallAstNode>(identifier, std::move(args));
   }
 
-  return std::make_unique<CallAstNode>(identifier, std::move(args));
+  //if (currentToken_.type == TokenType::Assign) {
+  //  nextToken();
+  //  auto rhs = parseExpression();
+  //  if (rhs == nullptr) {
+  //    logzy::error("Assignment without rhs");
+  //    return nullptr;
+  //  }
+
+  //  return std::make_unique<AssignmentAstNode>(identifier, std::move(rhs));
+  //}
+
+  logzy::error("Invalid token '{}' after identifier '{}'", currentToken_,
+               identifier);
+  return nullptr;
 }
 
 [[nodiscard]] auto Parser::parseParentheses() -> std::unique_ptr<AstNode> {

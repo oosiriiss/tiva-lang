@@ -159,6 +159,27 @@ auto BinaryExprAstNode::codegen() const -> llvm::Value * {
   std::unreachable();
 }
 
+auto BlockAstNode::codegen() const -> llvm::Value * {
+  llvm::Value *lastReturnValue = nullptr;
+
+  for (auto &expr : expressions) {
+    lastReturnValue = expr->codegen();
+
+    if (lastReturnValue == nullptr) {
+      logzy::error("Failed to generate code for expression");
+      return nullptr;
+    }
+  }
+
+  // Block empty
+  if (lastReturnValue == nullptr) {
+    logzy::error("Empty block encountered");
+    return nullptr;
+  }
+
+  return lastReturnValue;
+}
+
 auto FunctionPrototype::codegen() const -> llvm::Function * {
   // for now all args are ints
   std::vector<llvm::Type *> argTypes(args.size(),

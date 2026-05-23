@@ -5,7 +5,10 @@ int main() {
   initalizeLlvmModule();
 
   std::string_view exampleCode =
-      "fn testFn(a,b,c) (a + b + c)";
+      R"(fn testFn(a,b,c) {
+      (c+b)
+      a + b + c + 5 + 10
+   })";
 
   Parser parser(exampleCode);
 

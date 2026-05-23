@@ -14,6 +14,8 @@ enum class TokenType {
   ParenEnd,
   Function,
   Comma,
+  CurlyBegin,
+  CurlyEnd,
   Unknown,
   __SizeGuard,
 };
@@ -34,6 +36,7 @@ public:
       -> std::optional<Token>;
   [[nodiscard]] auto readNumber() noexcept -> std::optional<std::string_view>;
   [[nodiscard]] auto readSymbol() noexcept -> std::optional<TokenType>;
+  [[nodiscard]] auto parseBlock() noexcept -> std::optional<Token>;
   void skipWhitespace() noexcept;
 
   [[nodiscard]] auto isFinished() const noexcept -> bool;
@@ -77,6 +80,12 @@ struct std::formatter<TokenType> : std::formatter<std::string_view> {
       break;
     case TokenType::Comma:
       name = "Comma";
+      break;
+    case TokenType::CurlyBegin:
+      name = "CurlyBegin";
+      break;
+    case TokenType::CurlyEnd:
+      name = "CurlyEnd";
       break;
     case TokenType::Unknown:
       name = "Unknown";

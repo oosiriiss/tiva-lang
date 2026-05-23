@@ -138,8 +138,8 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
       {'+', TokenType::Plus},       {'-', TokenType::Minus},
       {'*', TokenType::Multiply},   {'/', TokenType::Divide},
       {'(', TokenType::ParenBegin}, {')', TokenType::ParenEnd},
-      {',', TokenType::Comma}
-   };
+      {',', TokenType::Comma},      {'{', TokenType::CurlyBegin},
+      {'}', TokenType::CurlyEnd}};
 
   if (source_.size() <= 0) {
     return std::nullopt;

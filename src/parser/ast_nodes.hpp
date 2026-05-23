@@ -54,6 +54,16 @@ struct BinaryExprAstNode : public AstNode {
   auto codegen() const -> llvm::Value * override;
 };
 
+struct BlockAstNode : public AstNode {
+  std::string blockName;
+  std::vector<std::unique_ptr<AstNode>> expressions;
+
+  constexpr BlockAstNode(std::string_view name,
+                         std::vector<std::unique_ptr<AstNode>> &&expressions)
+      : blockName{name}, expressions{std::move(expressions)} {}
+  auto codegen() const -> llvm::Value * override;
+};
+
 struct FunctionPrototype {
   std::string name;
   std::vector<std::string> args;

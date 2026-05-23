@@ -3,16 +3,14 @@
 #include "lexer.hpp"
 #include "logzy/logzy.hpp"
 #include <cassert>
-#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <utility>
 
 static std::unordered_map<TokenType, int> precedences{
-    {TokenType::Plus, 10},
-    {TokenType::Minus, 10},
-    {TokenType::Multiply, 20},
-    {TokenType::Divide, 20},
+    {TokenType::Plus, 10},   {TokenType::Minus, 10},
+    {TokenType::Multiply, 20}, {TokenType::Divide, 20},
 };
 
 static constexpr auto getPrecedence(TokenType type) -> int {
@@ -75,8 +73,9 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   }
 
   nextToken();
-  std::vector<std::unique_ptr<AstNode>> args;
-  if (currentToken_.type != TokenType::ParenEnd) {
+
+  if (currentToken_.type == TokenType::ParenBegin) { // Call
+    std::vector<std::unique_ptr<AstNode>> args;
 
     while (true) {
       if (auto arg = parseExpression()) {
@@ -118,7 +117,6 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   return expr;
 }
 
-
 [[nodiscard]] auto Parser::parseFunctionPrototype()
     -> std::unique_ptr<FunctionPrototype> {
   ASSERT_IDENTIFIER_TOKEN;
@@ -157,13 +155,21 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
     return nullptr;
   }
 
-  auto expression = parseExpression();
-  if (expression == nullptr) {
-    return nullptr;
+  std::unique_ptr<AstNode> body = nullptr;
+
+  if (currentToken_.type == TokenType::ParenBegin) {
+    body = parseExpression();
+    if (body == nullptr) {
+      return nullptr;
+    }
+  } else if (currentToken_.type == TokenType::CurlyBegin) {
+    body = parseBlock();
+    if (body == nullptr) {
+      return nullptr;
+    }
   }
 
-  return std::make_unique<Function>(std::move(prototype),
-                                    std::move(expression));
+  return std::make_unique<Function>(std::move(prototype), std::move(body));
 }
 
 [[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
@@ -213,4 +219,28 @@ Parser::parseBinaryExpressionRhs(int expressionPrecedence,
     lhs = std::make_unique<BinaryExprAstNode>(binOp, std::move(lhs),
                                               std::move(rhs));
   }
+}
+
+[[nodiscard]] auto
+Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
+    -> std::unique_ptr<BlockAstNode> {
+  ASSERT_TOKEN_TYPE(TokenType::CurlyBegin);
+  nextToken();
+
+  std::vector<std::unique_ptr<AstNode>> expressions;
+  while (currentToken_.type != TokenType::CurlyEnd) {
+    if (auto expr = parseExpression()) {
+      expressions.emplace_back(std::move(expr));
+    } else {
+      logzy::error("Couldn't parse expression in block");
+      return nullptr;
+    }
+  }
+
+  static std::uint32_t blockCounter{0};
+
+  return std::make_unique<BlockAstNode>(
+      (blockName.has_value()) ? *blockName
+                              : std::format("block_{}", blockCounter),
+      std::move(expressions));
 }

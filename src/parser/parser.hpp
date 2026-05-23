@@ -18,9 +18,13 @@ public:
   [[nodiscard]] auto parseFunctionPrototype()
       -> std::unique_ptr<FunctionPrototype>;
   [[nodiscard]] auto parseFunction() -> std::unique_ptr<Function>;
+
   [[nodiscard]] auto parseBinaryExpressionRhs(int expressionPrecedence,
                                               std::unique_ptr<AstNode> lhs)
       -> std::unique_ptr<AstNode>;
+  [[nodiscard]] auto
+  parseBlock(std::optional<std::string_view> blockName = std::nullopt) noexcept
+      -> std::unique_ptr<BlockAstNode>;
 
   constexpr void nextToken() { currentToken_ = lexer_.nextToken(); }
 

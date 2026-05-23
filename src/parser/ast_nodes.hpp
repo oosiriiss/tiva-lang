@@ -9,6 +9,7 @@
 
 void initalizeLlvmModule();
 void printGeneratedCode();
+void emitObjectFile(std::string_view fileName);
 
 class AstNode {
 public:

@@ -5,16 +5,16 @@ int main() {
   initalizeLlvmModule();
 
   std::string_view exampleCode =
-      "externFn(x,y,z) fn testFn(a,b,c) (a + b + c + externFn(a,b,c))";
+      "fn testFn(a,b,c) (a + b + c)";
 
   Parser parser(exampleCode);
 
-  auto res1 = parser.parseFunctionPrototype();
   auto res2 = parser.parseFunction();
-  res1->codegen();
   res2->codegen();
 
   printGeneratedCode();
+
+  emitObjectFile("test.o");
 
   return 0;
 }

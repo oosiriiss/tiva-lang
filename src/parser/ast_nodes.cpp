@@ -8,10 +8,18 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/NoFolder.h>
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Support/CodeGen.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/TargetParser/Host.h>
 #include <logzy/logzy.hpp>
 #include <utility>
 
@@ -24,18 +32,61 @@ void initalizeLlvmModule() {
   llvmContext = std::make_unique<llvm::LLVMContext>();
   llvmModule = std::make_unique<llvm::Module>("Main Module", *llvmContext);
   llvmBuilder = std::make_unique<llvm::IRBuilder<llvm::NoFolder>>(*llvmContext);
-
-  llvm::FunctionType *funcType =
-      llvm::FunctionType::get(llvm::Type::getDoubleTy(*llvmContext), false);
-  llvm::Function *func = llvm::Function::Create(
-      funcType, llvm::Function::ExternalLinkage, "main", *llvmModule);
-
-  llvm::BasicBlock *entryBlock =
-      llvm::BasicBlock::Create(*llvmContext, "entry", func);
-  llvmBuilder->SetInsertPoint(entryBlock);
 }
 
 void printGeneratedCode() { llvmModule->print(llvm::errs(), nullptr); }
+
+void emitObjectFile(std::string_view fileName) {
+
+  auto targetTriple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+
+  logzy::info("Emmiting object code for target '{}' to file: '{}'",
+              targetTriple.getTriple(), fileName);
+
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::InitializeNativeTargetAsmPrinter();
+
+  std::string err;
+  auto target = llvm::TargetRegistry::lookupTarget(targetTriple, err);
+
+  if (target == nullptr) {
+    logzy::error("Couldn't lookup target. {}", err);
+    return;
+  }
+
+  std::string_view cpu = "generic";
+  std::string_view features = "";
+  llvm::TargetOptions opts;
+
+  auto targetMachine = target->createTargetMachine(targetTriple, cpu, features,
+                                                   opts, llvm::Reloc::PIC_);
+
+  llvmModule->setDataLayout(targetMachine->createDataLayout());
+  llvmModule->setTargetTriple(targetTriple);
+
+  std::error_code ec;
+
+  llvm::raw_fd_ostream destination(fileName, ec, llvm::sys::fs::OF_None);
+  if (ec) {
+    logzy::error("Couldn't open file '{}' for writing. {}", fileName,
+                 ec.message());
+    return;
+  }
+
+  llvm::legacy::PassManager pass;
+
+  auto outputType = llvm::CodeGenFileType::ObjectFile;
+
+  if (targetMachine->addPassesToEmitFile(pass, destination, nullptr,
+                                         outputType)) {
+    logzy::error("Couldnt register pass to emit file");
+    return;
+  }
+
+  pass.run(*llvmModule);
+  destination.flush();
+}
 
 auto NumberAstNode::codegen() const -> llvm::Value * {
   logzy::trace("generating code for number '{}'", val);
@@ -94,13 +145,13 @@ auto BinaryExprAstNode::codegen() const -> llvm::Value * {
 
   switch (op) {
   case TokenType::Plus:
-    return llvmBuilder->CreateFAdd(left, right, "addtmp");
+    return llvmBuilder->CreateAdd(left, right, "addtmp");
   case TokenType::Minus:
-    return llvmBuilder->CreateFSub(left, right, "subtmp");
+    return llvmBuilder->CreateSub(left, right, "subtmp");
   case TokenType::Divide:
-    return llvmBuilder->CreateFDiv(left, right, "divtmp");
+    return llvmBuilder->CreateSDiv(left, right, "divtmp");
   case TokenType::Multiply:
-    return llvmBuilder->CreateFMul(left, right, "multmp");
+    return llvmBuilder->CreateMul(left, right, "multmp");
   default:
     logzy::error("invalid operator '{}'", op);
     break;

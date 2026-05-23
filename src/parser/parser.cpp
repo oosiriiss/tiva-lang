@@ -118,15 +118,6 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   return expr;
 }
 
-[[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
-  logzy::trace("Parsing expression's left side");
-  auto lhs = parsePrimary();
-  if (lhs == nullptr) {
-    return lhs;
-  }
-  logzy::trace("Parsing expression's right side");
-  return parseBinaryExpressionRhs(0, std::move(lhs));
-}
 
 [[nodiscard]] auto Parser::parseFunctionPrototype()
     -> std::unique_ptr<FunctionPrototype> {
@@ -173,6 +164,16 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
 
   return std::make_unique<Function>(std::move(prototype),
                                     std::move(expression));
+}
+
+[[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
+  logzy::trace("Parsing expression's left side");
+  auto lhs = parsePrimary();
+  if (lhs == nullptr) {
+    return lhs;
+  }
+  logzy::trace("Parsing expression's right side");
+  return parseBinaryExpressionRhs(0, std::move(lhs));
 }
 
 [[nodiscard]] auto

@@ -9,11 +9,8 @@
 #include <utility>
 
 static std::unordered_map<TokenType, int> precedences{
-    {TokenType::Assign, 2},
-    {TokenType::Plus, 10},
-    {TokenType::Minus, 10},
-    {TokenType::Multiply, 20},
-    {TokenType::Divide, 20},
+    {TokenType::Assign, 2},    {TokenType::Plus, 10},   {TokenType::Minus, 10},
+    {TokenType::Multiply, 20}, {TokenType::Divide, 20},
 };
 
 static constexpr auto getPrecedence(TokenType type) -> int {
@@ -32,6 +29,8 @@ static constexpr auto getPrecedence(TokenType type) -> int {
     return parseNumber();
   case TokenType::ParenBegin:
     return parseParentheses();
+  case TokenType::CurlyBegin:
+    return parseBlock();
   default:
     logzy::critical("Unsupported token {}", currentToken_);
     DEBUG_ASSERT(false);
@@ -252,7 +251,10 @@ Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
     }
   }
 
-  static std::uint32_t blockCounter{0};
+  // Skippingthe last '}'
+  nextToken();
+
+      static std::uint32_t blockCounter{0};
 
   return std::make_unique<BlockAstNode>(
       (blockName.has_value()) ? *blockName

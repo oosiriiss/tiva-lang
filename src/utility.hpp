@@ -3,6 +3,7 @@
 #include <charconv>
 #include <concepts>
 #include <format>
+#include <memory>
 #include <stdexcept>
 #include <string_view>
 
@@ -71,6 +72,19 @@ template <std::floating_point T>
 
   throw std::invalid_argument(
       std::format("Number '{}' is not a number", numberString));
+}
+
+template <class Derived, class Base>
+std::unique_ptr<Derived> unique_dynamic_cast(std::unique_ptr<Base> &ptr) {
+  if (Derived *derivedRaw = dynamic_cast<Derived *>(ptr.get())) {
+    // Releasing ownership so ptr doesn't delete the data
+    ptr.release();
+    // Ownership transferred to new instance
+    return std::unique_ptr<Derived>(derivedRaw);
+  }
+
+  // ptr unchanged
+  return nullptr;
 }
 
 } // namespace util

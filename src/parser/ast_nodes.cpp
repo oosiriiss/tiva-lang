@@ -209,18 +209,29 @@ auto NumberAstNode::codegen() const -> llvm::Value * {
   return llvm::ConstantInt::get(*llvmContext, llvm::APInt(32, val, true));
 }
 auto VariableAstNode::codegen() const -> llvm::Value * {
-  logzy::trace("generating code for variable '{}'", name);
+  logzy::trace("generating code for variable '{}' (r-value)", name);
   auto val = currentScope->find(name);
   if (val == currentScope->end()) {
     logzy::warn("variable not found in this scope");
     return nullptr;
   }
 
+  // Generates a value (R-value)
   return llvmBuilder->CreateLoad(val->second->getAllocatedType(), val->second,
                                  name.c_str());
 }
 
+auto VariableAstNode::codegenLValue() const -> llvm::Value * {
+  logzy::trace("generating code for variable '{}' (l-value)", name);
+  auto val = currentScope->find(name);
+  if (val == currentScope->end()) {
+    logzy::warn("variable not found in this scope");
+    return nullptr;
   }
+
+  // Generates a value (R-value)
+  return val->second;
+}
 
 auto AssignmentAstNode::codegen() const -> llvm::Value * {
   logzy::trace("Generating code for assignemnt of var: '{}'", var->name);

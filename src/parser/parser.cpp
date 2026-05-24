@@ -79,7 +79,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
     std::vector<std::unique_ptr<AstNode>> args;
 
     while (true) {
-      if (auto arg = parseExpression()) {
+      if (auto arg = parseBinaryExpression()) {
         args.emplace_back(std::move(arg));
       } else {
         return nullptr;
@@ -162,7 +162,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   std::unique_ptr<AstNode> body = nullptr;
 
   if (currentToken_.type == TokenType::ParenBegin) {
-    body = parseExpression();
+    body = parseBinaryExpression();
     if (body == nullptr) {
       return nullptr;
     }

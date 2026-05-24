@@ -5,6 +5,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <llvm/ADT/APFloat.h>
+#include <llvm/ADT/APInt.h>
 #include <llvm/Analysis/CGSCCPassManager.h>
 #include <llvm/Analysis/LoopAnalysisManager.h>
 #include <llvm/IR/BasicBlock.h>
@@ -51,11 +52,40 @@ static std::unique_ptr<llvm::PassInstrumentationCallbacks>
     llmvPassInstrumentationCallbacks;
 static std::unique_ptr<llvm::StandardInstrumentations> llvmPassInstrumentation;
 
-static std::unordered_map<std::string, llvm::AllocaInst *> scopeValues;
+static std::vector<std::unordered_map<std::string, llvm::AllocaInst *>>
+    scopeValues;
 
-void pushScope() {}
+static std::unordered_map<std::string, llvm::AllocaInst *> *currentScope;
 
-void popScope() {}
+static void printScopeValues() {
+  for (auto &[k, v] : scopeValues.back()) {
+    llvm::errs() << "(" << k << "," << v << ")\n";
+  }
+}
+
+void pushScope() {
+  // There should be at least one scope - global scope
+  scopeValues.emplace_back(
+      scopeValues.back()); // Copying last scope, so that all the variables
+                           // defined there will be defined in current scope
+
+  std::cout << "Scope values:";
+  printScopeValues();
+
+  currentScope = &scopeValues.back();
+}
+
+void popScope() {
+
+  std::cout << "Scope values (before popping scope):";
+  printScopeValues();
+
+  scopeValues.pop_back();
+  DEBUG_ASSERT(
+      scopeValues.size() >= 1,
+      "There should always be at least 1 scope on the stack (global scope)");
+  currentScope = &scopeValues.back();
+}
 
 // Allocates variable on the stack in the entry block of the function
 static llvm::AllocaInst *entryBlockAlloca(llvm::Function *function,
@@ -113,7 +143,9 @@ void initalizeLlvmModule() {
       *llvmCallGraphAnalysisManager, *llvmModuleAnalysisManager);
 
   // Global scope
-  // scopeValues.emplace_back(std::unordered_map<std::string, llvm::Value *>());
+  scopeValues.emplace_back(
+      std::unordered_map<std::string, llvm::AllocaInst *>());
+  currentScope = &scopeValues.back();
 }
 
 void printGeneratedCode() { llvmModule->print(llvm::errs(), nullptr); }
@@ -172,12 +204,12 @@ void emitObjectFile(std::string_view fileName) {
 
 auto NumberAstNode::codegen() const -> llvm::Value * {
   logzy::trace("generating code for number '{}'", val);
-  return llvm::ConstantFP::get(*llvmContext, llvm::APFloat(val));
+  return llvm::ConstantInt::get(*llvmContext, llvm::APInt(32, val, true));
 }
 auto VariableAstNode::codegen() const -> llvm::Value * {
   logzy::trace("generating code for variable '{}'", name);
-  auto val = scopeValues.find(name);
-  if (val == scopeValues.end()) {
+  auto val = currentScope->find(name);
+  if (val == currentScope->end()) {
     logzy::warn("variable not found in this scope");
     return nullptr;
   }
@@ -188,7 +220,15 @@ auto VariableAstNode::codegen() const -> llvm::Value * {
 
 auto AssignmentAstNode::codegen() const -> llvm::Value * {
   llvm::Function *parentFunction = llvmBuilder->GetInsertBlock()->getParent();
-  llvm::AllocaInst *var = entryBlockAlloca(parentFunction, name);
+
+  llvm::AllocaInst *var = nullptr;
+  // Already defined variable
+  if (auto scoped = currentScope->find(name); scoped != currentScope->end()) {
+    var = scoped->second;
+  } else {
+    // New variable
+    var = entryBlockAlloca(parentFunction, name);
+  }
 
   auto rhsValue = this->rhs->codegen();
   if (rhsValue == nullptr) {
@@ -249,18 +289,19 @@ auto BinaryExprAstNode::codegen() const -> llvm::Value * {
       return nullptr;
     }
 
-    auto varAllocated = scopeValues.find(var->name);
-    if (varAllocated == scopeValues.end()) { // Definition of variable
-      logzy::debug("Allocating variable '{}'", var->name);
+    auto varAllocated = currentScope->find(var->name);
+    if (varAllocated == currentScope->end()) { // Definition of variable
+      logzy::trace("Allocating variable '{}'", var->name);
       auto *allocated = entryBlockAlloca(
           llvmBuilder->GetInsertBlock()->getParent(), var->name);
       if (allocated == nullptr) {
         logzy::error("Couldn't allocate entry variable '{}'", var->name);
         return nullptr;
       }
-      scopeValues[var->name] = allocated;
+      (*currentScope)[var->name] = allocated;
       llvmBuilder->CreateStore(right, allocated);
     } else {
+      logzy::trace("variable '{}' found. no need to allocate", var->name);
 
       llvmBuilder->CreateStore(right, varAllocated->second);
     }
@@ -291,7 +332,11 @@ auto BinaryExprAstNode::codegen() const -> llvm::Value * {
 }
 
 auto BlockAstNode::codegen() const -> llvm::Value * {
+  logzy::trace("Generating code for block with {} expressions",
+               expressions.size());
   llvm::Value *lastReturnValue = nullptr;
+
+  pushScope();
 
   for (auto &expr : expressions) {
     lastReturnValue = expr->codegen();
@@ -307,6 +352,8 @@ auto BlockAstNode::codegen() const -> llvm::Value * {
     logzy::error("Empty block encountered");
     return nullptr;
   }
+
+  popScope();
 
   return lastReturnValue;
 }
@@ -350,15 +397,18 @@ auto Function::codegen() const -> llvm::Function * {
       llvm::BasicBlock::Create(*llvmContext, "entry", func);
   llvmBuilder->SetInsertPoint(block);
 
-  scopeValues.clear();
+  // currentScope->clear();
 
+  pushScope(); // ??? double scopes for function and body
   for (auto &arg : func->args()) {
     auto allocated = entryBlockAlloca(func, arg.getName());
     llvmBuilder->CreateStore(&arg, allocated);
-    scopeValues[std::string(arg.getName())] = allocated;
+    (*currentScope)[std::string(arg.getName())] = allocated;
   }
 
   auto *returnValue = body->codegen();
+  popScope();
+
   if (returnValue == nullptr) {
     logzy::error("Function didn't return value");
     func->eraseFromParent();

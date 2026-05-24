@@ -100,13 +100,13 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
     return std::make_unique<CallAstNode>(identifier, std::move(args));
   }
 
-  //if (currentToken_.type == TokenType::Assign) {
-  //  nextToken();
-  //  auto rhs = parseExpression();
-  //  if (rhs == nullptr) {
-  //    logzy::error("Assignment without rhs");
-  //    return nullptr;
-  //  }
+  // if (currentToken_.type == TokenType::Assign) {
+  //   nextToken();
+  //   auto rhs = parseExpression();
+  //   if (rhs == nullptr) {
+  //     logzy::error("Assignment without rhs");
+  //     return nullptr;
+  //   }
 
   //  return std::make_unique<AssignmentAstNode>(identifier, std::move(rhs));
   //}

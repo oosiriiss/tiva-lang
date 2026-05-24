@@ -188,8 +188,8 @@ void emitObjectFile(std::string_view fileName) {
     return;
   }
 
+  logzy::info("Registering emit pass");
   llvm::legacy::PassManager pass;
-
   auto outputType = llvm::CodeGenFileType::ObjectFile;
 
   if (targetMachine->addPassesToEmitFile(pass, destination, nullptr,
@@ -198,7 +198,9 @@ void emitObjectFile(std::string_view fileName) {
     return;
   }
 
+  logzy::info("Running emit pass");
   pass.run(*llvmModule);
+  logzy::info("Flushing file stream");
   destination.flush();
 }
 
@@ -218,25 +220,20 @@ auto VariableAstNode::codegen() const -> llvm::Value * {
                                  name.c_str());
 }
 
-auto AssignmentAstNode::codegen() const -> llvm::Value * {
-  llvm::Function *parentFunction = llvmBuilder->GetInsertBlock()->getParent();
-
-  llvm::AllocaInst *var = nullptr;
-  // Already defined variable
-  if (auto scoped = currentScope->find(name); scoped != currentScope->end()) {
-    var = scoped->second;
-  } else {
-    // New variable
-    var = entryBlockAlloca(parentFunction, name);
   }
 
+auto AssignmentAstNode::codegen() const -> llvm::Value * {
+  logzy::trace("Generating code for assignemnt of var: '{}'", var->name);
+  auto lhs = var->codegenLValue();
   auto rhsValue = this->rhs->codegen();
+
   if (rhsValue == nullptr) {
     logzy::error("Couldn't generate code for assginemnt rhs");
     return nullptr;
   }
+  llvmBuilder->CreateStore(rhsValue, lhs);
 
-  return llvmBuilder->CreateStore(var, rhsValue);
+  return rhsValue;
 }
 
 auto CallAstNode::codegen() const -> llvm::Value * {
@@ -274,39 +271,6 @@ auto BinaryExprAstNode::codegen() const -> llvm::Value * {
   logzy::trace("generating code for binary expression with operator'{}'", op);
 
   // Special case for assginemnts
-
-  // TODO :: Separate AssignemntAstNode
-  if (op == TokenType::Assign) {
-    VariableAstNode *var = dynamic_cast<VariableAstNode *>(lhs.get());
-    if (var == nullptr) {
-      logzy::error("Left side of assignment must be a variable");
-      return nullptr;
-    }
-
-    llvm::Value *right = rhs->codegen();
-    if (right == nullptr) {
-      logzy::error("Couldn't generate code for right handside of assignemnt");
-      return nullptr;
-    }
-
-    auto varAllocated = currentScope->find(var->name);
-    if (varAllocated == currentScope->end()) { // Definition of variable
-      logzy::trace("Allocating variable '{}'", var->name);
-      auto *allocated = entryBlockAlloca(
-          llvmBuilder->GetInsertBlock()->getParent(), var->name);
-      if (allocated == nullptr) {
-        logzy::error("Couldn't allocate entry variable '{}'", var->name);
-        return nullptr;
-      }
-      (*currentScope)[var->name] = allocated;
-      llvmBuilder->CreateStore(right, allocated);
-    } else {
-      logzy::trace("variable '{}' found. no need to allocate", var->name);
-
-      llvmBuilder->CreateStore(right, varAllocated->second);
-    }
-    return right;
-  }
 
   llvm::Value *left = lhs->codegen();
   llvm::Value *right = rhs->codegen();
@@ -379,8 +343,11 @@ auto FunctionPrototype::codegen() const -> llvm::Function * {
 
 auto Function::codegen() const -> llvm::Function * {
   // Checking if function was previously declared.
+  logzy::debug("Generating code for function '{}'", prototype->name);
   llvm::Function *func = llvmModule->getFunction(prototype->name);
   if (func == nullptr) {
+    logzy::debug("Generating code for function '{}' prototype",
+                 prototype->name);
     func = prototype->codegen();
   }
 
@@ -406,6 +373,7 @@ auto Function::codegen() const -> llvm::Function * {
     (*currentScope)[std::string(arg.getName())] = allocated;
   }
 
+  logzy::debug("Generating code for function '{}' body", prototype->name);
   auto *returnValue = body->codegen();
   popScope();
 

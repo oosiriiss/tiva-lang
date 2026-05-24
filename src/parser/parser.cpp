@@ -2,6 +2,7 @@
 #include "debug.hpp"
 #include "lexer.hpp"
 #include "logzy/logzy.hpp"
+#include "utility.hpp"
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -100,17 +101,6 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
     return std::make_unique<CallAstNode>(identifier, std::move(args));
   }
 
-  // if (currentToken_.type == TokenType::Assign) {
-  //   nextToken();
-  //   auto rhs = parseExpression();
-  //   if (rhs == nullptr) {
-  //     logzy::error("Assignment without rhs");
-  //     return nullptr;
-  //   }
-
-  //  return std::make_unique<AssignmentAstNode>(identifier, std::move(rhs));
-  //}
-
   logzy::error("Invalid token '{}' after identifier '{}'", currentToken_,
                identifier);
   return nullptr;
@@ -120,7 +110,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   logzy::trace("Parsing parentheses");
   ASSERT_TOKEN_VALUE("(");
   nextToken();
-  auto expr = parseExpression();
+  auto expr = parseBinaryExpression();
   if (expr == nullptr) {
     return expr;
   }
@@ -186,14 +176,34 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   return std::make_unique<Function>(std::move(prototype), std::move(body));
 }
 
-[[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
+[[nodiscard]] auto Parser::parseBinaryExpression() -> std::unique_ptr<AstNode> {
   logzy::trace("Parsing expression's left side");
   auto lhs = parsePrimary();
   if (lhs == nullptr) {
     return lhs;
   }
+
   logzy::trace("Parsing expression's right side");
-  return parseBinaryExpressionRhs(0, std::move(lhs));
+  if (currentToken_.type == TokenType::Assign) {
+    nextToken();
+
+    auto variableNode = util::unique_dynamic_cast<VariableAstNode>(lhs);
+    if (variableNode == nullptr) {
+      logzy::error("Expected assignemnt lhs to be a lvalue");
+      return nullptr;
+    }
+
+    std::unique_ptr<AstNode> rhs = parseBinaryExpression();
+    if (rhs == nullptr) {
+      logzy::error("No rhs");
+      return nullptr;
+    }
+
+    return std::make_unique<AssignmentAstNode>(std::move(variableNode),
+                                               std::move(rhs));
+  } else {
+    return parseBinaryExpressionRhs(0, std::move(lhs));
+  }
 }
 
 [[nodiscard]] auto
@@ -238,12 +248,13 @@ Parser::parseBinaryExpressionRhs(int expressionPrecedence,
 [[nodiscard]] auto
 Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
     -> std::unique_ptr<BlockAstNode> {
+  logzy::debug("Parsing block");
   ASSERT_TOKEN_TYPE(TokenType::CurlyBegin);
   nextToken();
 
   std::vector<std::unique_ptr<AstNode>> expressions;
   while (currentToken_.type != TokenType::CurlyEnd) {
-    if (auto expr = parseExpression()) {
+    if (auto expr = parseBinaryExpression()) {
       expressions.emplace_back(std::move(expr));
     } else {
       logzy::error("Couldn't parse expression in block");
@@ -251,10 +262,12 @@ Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
     }
   }
 
+  logzy::trace("Block has {} expressions", expressions.size());
+
   // Skippingthe last '}'
   nextToken();
 
-      static std::uint32_t blockCounter{0};
+  static std::uint32_t blockCounter{0};
 
   return std::make_unique<BlockAstNode>(
       (blockName.has_value()) ? *blockName

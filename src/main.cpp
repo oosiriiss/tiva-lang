@@ -6,15 +6,8 @@ int main() {
 
   std::string_view exampleCode =
       R"(fn testFn(a,b,c) {
-      d = 5
-      r = 0
-      r = r + d
-      {
-	 d2 = d * 2
-	 r = r + d2
-      }
-      r = r + d
-      r
+      a = (b = (c + 1)) + 1
+      a + b + c
    })";
 
   Parser parser(exampleCode);

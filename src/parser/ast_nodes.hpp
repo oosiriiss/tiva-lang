@@ -32,16 +32,19 @@ struct VariableAstNode : public AstNode {
   std::string name;
 
   constexpr VariableAstNode(std::string_view name) : name{name} {}
+  // Generates R-value and emits load.
   auto codegen() const -> llvm::Value * override;
+  // Generates Lvalue. Doesn't emit load.
+  auto codegenLValue() const -> llvm::Value *;
 };
 
 struct AssignmentAstNode : public AstNode {
-  std::string name;
+  std::unique_ptr<VariableAstNode> var;
   std::unique_ptr<AstNode> rhs;
 
-  constexpr AssignmentAstNode(std::string_view name,
+  constexpr AssignmentAstNode(std::unique_ptr<VariableAstNode> lhs,
                               std::unique_ptr<AstNode> rhs)
-      : name{name}, rhs{std::move(rhs)} {}
+      : var{std::move(lhs)}, rhs{std::move(rhs)} {}
   auto codegen() const -> llvm::Value * override;
 };
 

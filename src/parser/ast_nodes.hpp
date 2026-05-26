@@ -80,6 +80,19 @@ struct BlockAstNode : public AstNode {
   auto codegen() const -> llvm::Value * override;
 };
 
+struct IfElseAstNode : public AstNode {
+  std::unique_ptr<AstNode> condition;
+  std::unique_ptr<AstNode> ifBody;
+  std::unique_ptr<AstNode> elseBody;
+
+  constexpr IfElseAstNode(std::unique_ptr<AstNode> condition,
+                         std::unique_ptr<AstNode> ifBlock,
+                         std::unique_ptr<AstNode> elseBlock)
+      : condition{std::move(condition)}, ifBody{std::move(ifBlock)},
+        elseBody{std::move(elseBlock)} {}
+  auto codegen() const -> llvm::Value * override;
+};
+
 struct FunctionPrototype {
   std::string name;
   std::vector<std::string> args;

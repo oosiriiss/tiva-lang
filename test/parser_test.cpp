@@ -30,7 +30,7 @@ TEST(ParserTest, ParsesVariableCorrectly) {
 
 TEST(ParserTest, ParsesSimpleBinaryExpression) {
   auto parser = createParser("a + 5");
-  auto baseNode = parser->parseBinaryExpression();
+  auto baseNode = parser->parseExpression();
 
   ASSERT_NE(baseNode, nullptr);
 
@@ -60,7 +60,7 @@ TEST(ParserTest, ParsesParenthesesCorrectly) {
 
 TEST(ParserTest, HandlesOperatorPrecedence) {
   auto parser = createParser("1 + 2 * 3");
-  auto rootNode = parser->parseBinaryExpression();
+  auto rootNode = parser->parseExpression();
 
   ASSERT_NE(rootNode, nullptr);
 

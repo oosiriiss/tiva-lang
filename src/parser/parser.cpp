@@ -32,6 +32,8 @@ static constexpr auto getPrecedence(TokenType type) -> int {
     return parseParentheses();
   case TokenType::CurlyBegin:
     return parseBlock();
+  case TokenType::If:
+    return parseIfElse();
   default:
     logzy::critical("Unsupported token {}", currentToken_);
     DEBUG_ASSERT(false);
@@ -79,7 +81,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
     std::vector<std::unique_ptr<AstNode>> args;
 
     while (true) {
-      if (auto arg = parseBinaryExpression()) {
+      if (auto arg = parseExpression()) {
         args.emplace_back(std::move(arg));
       } else {
         return nullptr;
@@ -110,7 +112,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   logzy::trace("Parsing parentheses");
   ASSERT_TOKEN_VALUE("(");
   nextToken();
-  auto expr = parseBinaryExpression();
+  auto expr = parseExpression();
   if (expr == nullptr) {
     return expr;
   }
@@ -162,7 +164,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   std::unique_ptr<AstNode> body = nullptr;
 
   if (currentToken_.type == TokenType::ParenBegin) {
-    body = parseBinaryExpression();
+    body = parseExpression();
     if (body == nullptr) {
       return nullptr;
     }
@@ -176,7 +178,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   return std::make_unique<Function>(std::move(prototype), std::move(body));
 }
 
-[[nodiscard]] auto Parser::parseBinaryExpression() -> std::unique_ptr<AstNode> {
+[[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
   logzy::trace("Parsing expression's left side");
   auto lhs = parsePrimary();
   if (lhs == nullptr) {
@@ -193,7 +195,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
       return nullptr;
     }
 
-    std::unique_ptr<AstNode> rhs = parseBinaryExpression();
+    std::unique_ptr<AstNode> rhs = parseExpression();
     if (rhs == nullptr) {
       logzy::error("No rhs");
       return nullptr;
@@ -254,7 +256,7 @@ Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
 
   std::vector<std::unique_ptr<AstNode>> expressions;
   while (currentToken_.type != TokenType::CurlyEnd) {
-    if (auto expr = parseBinaryExpression()) {
+    if (auto expr = parseExpression()) {
       expressions.emplace_back(std::move(expr));
     } else {
       logzy::error("Couldn't parse expression in block");
@@ -273,4 +275,33 @@ Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
       (blockName.has_value()) ? *blockName
                               : std::format("block_{}", blockCounter),
       std::move(expressions));
+}
+
+[[nodiscard]] auto Parser::parseIfElse() -> std::unique_ptr<AstNode> {
+   logzy::trace("Parsing if else");
+  nextToken(); // Consuming if
+
+  auto condition = parseExpression();
+  if (condition == nullptr) {
+    logzy::error("Couldn't parse if condition expression");
+    return nullptr;
+  }
+
+  auto ifBlock = parseExpression();
+  if (ifBlock == nullptr) {
+    logzy::error("Couldn't parse if's ifBlock expression");
+    return nullptr;
+  }
+
+  ASSERT_TOKEN_TYPE(TokenType::Else);
+  nextToken();
+
+  auto elseBlock = parseExpression();
+  if (elseBlock == nullptr) {
+    logzy::error("Couldn't parse if's elseBlock expression");
+    return nullptr;
+  }
+
+  return std::make_unique<IfElseAstNode>(
+      std::move(condition), std::move(ifBlock), std::move(elseBlock));
 }

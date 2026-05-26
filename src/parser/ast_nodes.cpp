@@ -333,6 +333,76 @@ auto BlockAstNode::codegen() const -> llvm::Value * {
   return lastReturnValue;
 }
 
+auto IfElseAstNode::codegen() const -> llvm::Value * {
+  logzy::debug("Generating code for ifelse expression");
+  auto *conditonValue = condition->codegen();
+  if (!condition) {
+    logzy::error("Coulndt genreate code for the conditon");
+    return nullptr;
+  }
+
+  conditonValue = llvmBuilder->CreateICmpNE(
+      conditonValue,
+      llvm::ConstantInt::get(*llvmContext, llvm::APInt(32, 0, true)));
+
+  llvm::Function *parentFunc = llvmBuilder->GetInsertBlock()->getParent();
+
+  llvm::BasicBlock *ifBlock =
+      llvm::BasicBlock::Create(*llvmContext, "if", parentFunc);
+
+  llvm::BasicBlock *elseBlock = llvm::BasicBlock::Create(
+      *llvmContext, "else"); // Not yet inserted to the function
+
+  llvm::BasicBlock *mergeBlock = llvm::BasicBlock::Create(
+      *llvmContext, "ifMerge"); // Not yet inserted to the function
+
+  // TODO :: instead fo generatingthe phi node and branches, a simple seleect
+  // instruciton looks simpler. But it looks like the llvm automatically does this.
+   //
+  //  %1 = icmp sgt i32 %a, %b
+  //  %2 = select i1 %1, i32 %a, i32 %b
+  //  ret i32 %2
+
+  llvmBuilder->CreateCondBr(conditonValue, ifBlock, elseBlock);
+
+  llvmBuilder->SetInsertPoint(ifBlock);
+  //
+  auto *ifBodyValue = ifBody->codegen();
+  if (ifBodyValue == nullptr) {
+    logzy::error("Couldn't generate code for if body");
+    return nullptr;
+  }
+  llvmBuilder->CreateBr(mergeBlock); // Branches' "return" block
+
+  // codegen for body may change the block, restoringi t
+  llvmBuilder->SetInsertPoint(ifBlock);
+
+  parentFunc->insert(parentFunc->end(), elseBlock);
+  llvmBuilder->SetInsertPoint(elseBlock);
+  //
+  auto *elseBodyValue = elseBody->codegen();
+  if (elseBodyValue == nullptr) {
+    logzy::error("Couldn't generate code for if body");
+    return nullptr;
+  }
+  llvmBuilder->CreateBr(mergeBlock); // Branches' "return" block
+
+  // codegen for body may change the block, restoringi t
+  llvmBuilder->SetInsertPoint(elseBlock);
+
+  // Merge block
+  parentFunc->insert(parentFunc->end(), mergeBlock);
+  llvmBuilder->SetInsertPoint(mergeBlock);
+
+  llvm::PHINode *phi = llvmBuilder->CreatePHI(
+      llvm::Type::getInt32Ty(*llvmContext), 2, "ifResult");
+
+  phi->addIncoming(ifBodyValue, ifBlock);
+  phi->addIncoming(elseBodyValue, elseBlock);
+
+  return phi;
+}
+
 auto FunctionPrototype::codegen() const -> llvm::Function * {
   // for now all args are ints
   std::vector<llvm::Type *> argTypes(args.size(),

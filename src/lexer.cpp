@@ -60,7 +60,20 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
     -> std::optional<Token> {
 
   static std::unordered_map<std::string_view, TokenType> keywords{
-      {"fn", TokenType::Function}};
+      {
+          "fn",
+          TokenType::Function,
+      },
+      {
+          "if",
+          TokenType::If,
+      },
+      {
+          "else",
+          TokenType::Else,
+      }
+
+  };
 
   auto iter = keywords.find(identifierString);
   if (iter == keywords.end()) {

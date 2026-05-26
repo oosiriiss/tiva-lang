@@ -72,7 +72,6 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
           "else",
           TokenType::Else,
       }
-
   };
 
   auto iter = keywords.find(identifierString);

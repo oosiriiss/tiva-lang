@@ -2,22 +2,17 @@
 #pragma once
 #include "lexer.hpp"
 #include "utility.hpp"
-#include <llvm/IR/Function.h>
-#include <llvm/IR/Value.h>
 #include <memory>
 #include <string_view>
+#include <vector>
 
-void initalizeLlvmModule();
-void printGeneratedCode();
-void emitObjectFile(std::string_view fileName);
-
-void pushScope();
-void popScope();
+struct CompilerState;
+class AstNodeVisitor;
 
 class AstNode {
 public:
   virtual ~AstNode() = default;
-  virtual auto codegen() const -> llvm::Value * = 0;
+  virtual void accept(AstNodeVisitor *) = 0;
 };
 
 struct NumberAstNode : public AstNode {
@@ -25,17 +20,15 @@ struct NumberAstNode : public AstNode {
 
   constexpr NumberAstNode(std::string_view numStr)
       : val{util::toNumber<double>(numStr)} {}
-  auto codegen() const -> llvm::Value * override;
+
+  void accept(AstNodeVisitor *) override;
 };
 
 struct VariableAstNode : public AstNode {
   std::string name;
 
   constexpr VariableAstNode(std::string_view name) : name{name} {}
-  // Generates R-value and emits load.
-  auto codegen() const -> llvm::Value * override;
-  // Generates Lvalue. Doesn't emit load.
-  auto codegenLValue() const -> llvm::Value *;
+  void accept(AstNodeVisitor *) override;
 };
 
 struct AssignmentAstNode : public AstNode {
@@ -45,7 +38,7 @@ struct AssignmentAstNode : public AstNode {
   constexpr AssignmentAstNode(std::unique_ptr<VariableAstNode> lhs,
                               std::unique_ptr<AstNode> rhs)
       : var{std::move(lhs)}, rhs{std::move(rhs)} {}
-  auto codegen() const -> llvm::Value * override;
+  void accept(AstNodeVisitor *) override;
 };
 
 struct CallAstNode : public AstNode {
@@ -55,7 +48,7 @@ struct CallAstNode : public AstNode {
   constexpr CallAstNode(std::string_view toCall,
                         std::vector<std::unique_ptr<AstNode>> &&args)
       : toCall{toCall}, args{std::move(args)} {}
-  auto codegen() const -> llvm::Value * override;
+  void accept(AstNodeVisitor *) override;
 };
 
 struct BinaryExprAstNode : public AstNode {
@@ -67,7 +60,7 @@ struct BinaryExprAstNode : public AstNode {
   constexpr BinaryExprAstNode(TokenType op, std::unique_ptr<AstNode> lhs,
                               std::unique_ptr<AstNode> rhs)
       : op{op}, lhs{std::move(lhs)}, rhs{std::move(rhs)} {}
-  auto codegen() const -> llvm::Value * override;
+  void accept(AstNodeVisitor *) override;
 };
 
 struct BlockAstNode : public AstNode {
@@ -77,7 +70,7 @@ struct BlockAstNode : public AstNode {
   constexpr BlockAstNode(std::string_view name,
                          std::vector<std::unique_ptr<AstNode>> &&expressions)
       : blockName{name}, expressions{std::move(expressions)} {}
-  auto codegen() const -> llvm::Value * override;
+  void accept(AstNodeVisitor *) override;
 };
 
 struct IfElseAstNode : public AstNode {
@@ -86,13 +79,14 @@ struct IfElseAstNode : public AstNode {
   std::unique_ptr<AstNode> elseBody;
 
   constexpr IfElseAstNode(std::unique_ptr<AstNode> condition,
-                         std::unique_ptr<AstNode> ifBlock,
-                         std::unique_ptr<AstNode> elseBlock)
+                          std::unique_ptr<AstNode> ifBlock,
+                          std::unique_ptr<AstNode> elseBlock)
       : condition{std::move(condition)}, ifBody{std::move(ifBlock)},
         elseBody{std::move(elseBlock)} {}
-  auto codegen() const -> llvm::Value * override;
+  void accept(AstNodeVisitor *) override;
 };
 
+// For now there is no need for it to be an AstNode
 struct FunctionPrototype {
   std::string name;
   std::vector<std::string> args;
@@ -100,15 +94,25 @@ struct FunctionPrototype {
   constexpr FunctionPrototype(std::string_view name,
                               std::vector<std::string> &&argNames)
       : name{name}, args{argNames} {}
-  auto codegen() const -> llvm::Function *;
 };
 
-struct Function {
+struct Function : public AstNode {
   std::unique_ptr<FunctionPrototype> prototype;
   std::unique_ptr<AstNode> body;
 
   constexpr Function(std::unique_ptr<FunctionPrototype> prototype,
                      std::unique_ptr<AstNode> expression)
       : prototype{std::move(prototype)}, body{std::move(expression)} {}
-  auto codegen() const -> llvm::Function *;
+  void accept(AstNodeVisitor *) override;
+};
+
+struct AstNodeVisitor {
+  virtual void visit(NumberAstNode *) = 0;
+  virtual void visit(VariableAstNode *) = 0;
+  virtual void visit(AssignmentAstNode *) = 0;
+  virtual void visit(CallAstNode *) = 0;
+  virtual void visit(BinaryExprAstNode *) = 0;
+  virtual void visit(BlockAstNode *) = 0;
+  virtual void visit(IfElseAstNode *) = 0;
+  virtual void visit(Function *) = 0;
 };

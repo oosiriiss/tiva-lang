@@ -28,6 +28,11 @@ add_library(
    ./src/parser/ast_nodes.hpp
    ./src/parser/ast_nodes.cpp
 
+   ./src/codegen/codegen_visitor.cpp
+   ./src/codegen/codegen_visitor.hpp
+   ./src/codegen/module.hpp
+   ./src/codegen/module.cpp
+
    ./src/debug.hpp
 )
 

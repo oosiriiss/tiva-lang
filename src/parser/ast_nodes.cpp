@@ -18,4 +18,6 @@ void BlockAstNode::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
 
 void IfElseAstNode::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
 
+void LetAstNode::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
+
 void Function::accept(AstNodeVisitor *visitor) { visitor->visit(this); }

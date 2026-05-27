@@ -19,6 +19,7 @@ public:
   void visit(BinaryExprAstNode *) override;
   void visit(BlockAstNode *) override;
   void visit(IfElseAstNode *) override;
+  void visit(LetAstNode *) override;
   // void visit(FunctionPrototype *) override; // No need for it to be a node
   void visit(Function *) override;
 

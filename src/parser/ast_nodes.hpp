@@ -1,16 +1,17 @@
 
 #pragma once
-#include "lexer.hpp"
-#include "utility.hpp"
 #include <memory>
 #include <string_view>
 #include <vector>
+
+#include "lexer.hpp"
+#include "utility.hpp"
 
 struct CompilerState;
 class AstNodeVisitor;
 
 class AstNode {
-public:
+ public:
   virtual ~AstNode() = default;
   virtual void accept(AstNodeVisitor *) = 0;
 };
@@ -27,7 +28,8 @@ struct NumberAstNode : public AstNode {
 struct VariableAstNode : public AstNode {
   std::string name;
 
-  constexpr VariableAstNode(std::string_view name) : name{name} {}
+  constexpr VariableAstNode(std::string_view name)
+      : name{name} {}
   void accept(AstNodeVisitor *) override;
 };
 
@@ -37,7 +39,8 @@ struct AssignmentAstNode : public AstNode {
 
   constexpr AssignmentAstNode(std::unique_ptr<VariableAstNode> lhs,
                               std::unique_ptr<AstNode> rhs)
-      : var{std::move(lhs)}, rhs{std::move(rhs)} {}
+      : var{std::move(lhs)},
+        rhs{std::move(rhs)} {}
   void accept(AstNodeVisitor *) override;
 };
 
@@ -47,19 +50,21 @@ struct CallAstNode : public AstNode {
 
   constexpr CallAstNode(std::string_view toCall,
                         std::vector<std::unique_ptr<AstNode>> &&args)
-      : toCall{toCall}, args{std::move(args)} {}
+      : toCall{toCall},
+        args{std::move(args)} {}
   void accept(AstNodeVisitor *) override;
 };
 
 struct BinaryExprAstNode : public AstNode {
-
   TokenType op;
   std::unique_ptr<AstNode> lhs;
   std::unique_ptr<AstNode> rhs;
 
   constexpr BinaryExprAstNode(TokenType op, std::unique_ptr<AstNode> lhs,
                               std::unique_ptr<AstNode> rhs)
-      : op{op}, lhs{std::move(lhs)}, rhs{std::move(rhs)} {}
+      : op{op},
+        lhs{std::move(lhs)},
+        rhs{std::move(rhs)} {}
   void accept(AstNodeVisitor *) override;
 };
 
@@ -69,7 +74,8 @@ struct BlockAstNode : public AstNode {
 
   constexpr BlockAstNode(std::string_view name,
                          std::vector<std::unique_ptr<AstNode>> &&expressions)
-      : blockName{name}, expressions{std::move(expressions)} {}
+      : blockName{name},
+        expressions{std::move(expressions)} {}
   void accept(AstNodeVisitor *) override;
 };
 
@@ -81,8 +87,21 @@ struct IfElseAstNode : public AstNode {
   constexpr IfElseAstNode(std::unique_ptr<AstNode> condition,
                           std::unique_ptr<AstNode> ifBlock,
                           std::unique_ptr<AstNode> elseBlock)
-      : condition{std::move(condition)}, ifBody{std::move(ifBlock)},
+      : condition{std::move(condition)},
+        ifBody{std::move(ifBlock)},
         elseBody{std::move(elseBlock)} {}
+  void accept(AstNodeVisitor *) override;
+};
+
+struct LetAstNode : public AstNode {
+  std::string varName;
+  std::unique_ptr<AstNode> rhs;
+
+  constexpr LetAstNode(std::string_view variableName,
+                       std::unique_ptr<AstNode> rhs)
+      : varName{variableName},
+        rhs{std::move(rhs)} {}
+
   void accept(AstNodeVisitor *) override;
 };
 
@@ -93,7 +112,8 @@ struct FunctionPrototype {
 
   constexpr FunctionPrototype(std::string_view name,
                               std::vector<std::string> &&argNames)
-      : name{name}, args{argNames} {}
+      : name{name},
+        args{argNames} {}
 };
 
 struct Function : public AstNode {
@@ -102,7 +122,8 @@ struct Function : public AstNode {
 
   constexpr Function(std::unique_ptr<FunctionPrototype> prototype,
                      std::unique_ptr<AstNode> expression)
-      : prototype{std::move(prototype)}, body{std::move(expression)} {}
+      : prototype{std::move(prototype)},
+        body{std::move(expression)} {}
   void accept(AstNodeVisitor *) override;
 };
 
@@ -114,5 +135,6 @@ struct AstNodeVisitor {
   virtual void visit(BinaryExprAstNode *) = 0;
   virtual void visit(BlockAstNode *) = 0;
   virtual void visit(IfElseAstNode *) = 0;
+  virtual void visit(LetAstNode *) = 0;
   virtual void visit(Function *) = 0;
 };

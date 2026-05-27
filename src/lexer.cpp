@@ -1,9 +1,11 @@
 #include "lexer.hpp"
-#include "logzy/logzy.hpp"
-#include "utility.hpp"
+
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+
+#include "logzy/logzy.hpp"
+#include "utility.hpp"
 
 using util::isDigit;
 using util::isLetter;
@@ -13,7 +15,8 @@ enum class State {
   Start,
 };
 
-Lexer::Lexer(std::string_view source) noexcept : source_{source} {}
+Lexer::Lexer(std::string_view source) noexcept
+    : source_{source} {}
 
 auto Lexer::nextToken() -> Token {
   logzy::debug("Trying to parse next token");
@@ -55,10 +58,8 @@ auto Lexer::nextToken() -> Token {
   return Token{.value = source_.substr(0, 16), .type = TokenType::Unknown};
 }
 
-[[nodiscard]] auto
-Lexer::parseKeyword(std::string_view identifierString) noexcept
-    -> std::optional<Token> {
-
+[[nodiscard]] auto Lexer::parseKeyword(
+    std::string_view identifierString) noexcept -> std::optional<Token> {
   static std::unordered_map<std::string_view, TokenType> keywords{
       {
           "fn",
@@ -71,8 +72,11 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
       {
           "else",
           TokenType::Else,
-      }
-  };
+      },
+      {
+          "let",
+          TokenType::Let,
+      }};
 
   auto iter = keywords.find(identifierString);
   if (iter == keywords.end()) {
@@ -94,7 +98,6 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
 
 [[nodiscard]] auto Lexer::readIdentifier() noexcept
     -> std::optional<std::string_view> {
-
   if (source_.size() <= 0 || !validIdentifierFirstChar(source_[0])) {
     logzy::trace("'{}' is not a valid identifier beginning",
                  source_.substr(0, 1));
@@ -113,7 +116,6 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
 
 [[nodiscard]] auto Lexer::readNumber() noexcept
     -> std::optional<std::string_view> {
-
   size_t length = 0;
 
   // Allowing negative numbers
@@ -145,7 +147,6 @@ Lexer::parseKeyword(std::string_view identifierString) noexcept
 }
 
 [[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<TokenType> {
-
   static std::unordered_map<char, TokenType> tokens{
       {'+', TokenType::Plus},
       {'-', TokenType::Minus},

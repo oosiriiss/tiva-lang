@@ -1,8 +1,5 @@
 #include "codegen_visitor.hpp"
-#include "codegen/module.hpp"
-#include "parser/ast_nodes.hpp"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
+
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/Analysis/CGSCCPassManager.h>
@@ -36,10 +33,15 @@
 #include <llvm/Transforms/Scalar/Reassociate.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/Transforms/Utils/Mem2Reg.h>
+
 #include <logzy/logzy.hpp>
 
-[[nodiscard]] auto CodeGenVisitor::generate(AstNode *node) -> llvm::Value * {
+#include "codegen/module.hpp"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "parser/ast_nodes.hpp"
 
+[[nodiscard]] auto CodeGenVisitor::generate(AstNode *node) -> llvm::Value * {
   ReturnValue = nullptr;
   node->accept(this);
 
@@ -64,7 +66,6 @@ void CodeGenVisitor::printScope(std::string_view message) {
 auto CodeGenVisitor::allocateInEntryBlock(llvm::Function *func,
                                           std::string_view variableName)
     -> llvm::AllocaInst * {
-
   llvm::IRBuilder<> entryBuilder(&func->getEntryBlock(),
                                  func->getEntryBlock().begin());
 
@@ -117,7 +118,6 @@ void CodeGenVisitor::visit(AssignmentAstNode *assignment) {
   ReturnValue = rhsValue;
 }
 void CodeGenVisitor::visit(CallAstNode *call) {
-
   std::string &toCall = call->toCall;
   std::vector<std::unique_ptr<AstNode>> &args = call->args;
 
@@ -140,7 +140,6 @@ void CodeGenVisitor::visit(CallAstNode *call) {
   std::vector<llvm::Value *> argValues;
   argValues.reserve(args.size());
   for (size_t i = 0; i < args.size(); ++i) {
-
     auto *argValue = generate(args[i]);
     if (argValue == nullptr) {
       logzy::debug("Couldnt generate code for arg[{}] of function {}", i,
@@ -154,7 +153,6 @@ void CodeGenVisitor::visit(CallAstNode *call) {
   ReturnValue = state->builder.CreateCall(functionToCall, argValues, "calltmp");
 }
 void CodeGenVisitor::visit(BinaryExprAstNode *binaryExpr) {
-
   std::unique_ptr<AstNode> &lhs = binaryExpr->lhs;
   std::unique_ptr<AstNode> &rhs = binaryExpr->rhs;
   TokenType op = binaryExpr->op;
@@ -172,26 +170,25 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binaryExpr) {
   }
 
   switch (op) {
-  case TokenType::Plus:
-    ReturnValue = state->builder.CreateAdd(left, right, "addtmp");
-    break;
-  case TokenType::Minus:
-    ReturnValue = state->builder.CreateSub(left, right, "subtmp");
-    break;
-  case TokenType::Divide:
-    ReturnValue = state->builder.CreateSDiv(left, right, "divtmp");
-    break;
-  case TokenType::Multiply:
-    ReturnValue = state->builder.CreateMul(left, right, "multmp");
-    break;
-  default:
-    logzy::error("invalid operator '{}'", op);
-    ReturnValue = nullptr;
-    break;
+    case TokenType::Plus:
+      ReturnValue = state->builder.CreateAdd(left, right, "addtmp");
+      break;
+    case TokenType::Minus:
+      ReturnValue = state->builder.CreateSub(left, right, "subtmp");
+      break;
+    case TokenType::Divide:
+      ReturnValue = state->builder.CreateSDiv(left, right, "divtmp");
+      break;
+    case TokenType::Multiply:
+      ReturnValue = state->builder.CreateMul(left, right, "multmp");
+      break;
+    default:
+      logzy::error("invalid operator '{}'", op);
+      ReturnValue = nullptr;
+      break;
   }
 }
 void CodeGenVisitor::visit(BlockAstNode *block) {
-
   std::vector<std::unique_ptr<AstNode>> &expressions = block->expressions;
 
   logzy::trace("Generating code for block with {} expressions",
@@ -221,7 +218,6 @@ void CodeGenVisitor::visit(BlockAstNode *block) {
   // ReturnValue set by the last expression.
 }
 void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
-
   std::unique_ptr<AstNode> &condition = ifElse->condition;
   std::unique_ptr<AstNode> &ifBody = ifElse->ifBody;
   std::unique_ptr<AstNode> &elseBody = ifElse->elseBody;
@@ -244,10 +240,10 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
       llvm::BasicBlock::Create(state->context, "if", parentFunc);
 
   llvm::BasicBlock *elseBlock = llvm::BasicBlock::Create(
-      state->context, "else"); // Not yet inserted to the function
+      state->context, "else");  // Not yet inserted to the function
 
   llvm::BasicBlock *mergeBlock = llvm::BasicBlock::Create(
-      state->context, "ifMerge"); // Not yet inserted to the function
+      state->context, "ifMerge");  // Not yet inserted to the function
 
   // TODO :: instead fo generatingthe phi node and branches, a simple seleect
   // instruciton looks simpler. But it looks like the llvm automatically does
@@ -267,7 +263,7 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
     ReturnValue = nullptr;
     return;
   }
-  state->builder.CreateBr(mergeBlock); // Branches' "return" block
+  state->builder.CreateBr(mergeBlock);  // Branches' "return" block
 
   // codegen for body may change the block, restoringi t
   state->builder.SetInsertPoint(ifBlock);
@@ -281,7 +277,7 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
     ReturnValue = nullptr;
     return;
   }
-  state->builder.CreateBr(mergeBlock); // Branches' "return" block
+  state->builder.CreateBr(mergeBlock);  // Branches' "return" block
 
   // codegen for body may change the block, restoringi t
   state->builder.SetInsertPoint(elseBlock);
@@ -320,8 +316,37 @@ static auto createFunction(FunctionPrototype *proto, CompilerState &state)
   return func;
 }
 
-void CodeGenVisitor::visit(Function *function) {
+void CodeGenVisitor::visit(LetAstNode *let) {
+  std::string_view varName = let->varName;
+  std::unique_ptr<AstNode> &rhs = let->rhs;
 
+  // TODO :: Unnecessary cast to string, make scopeValues comparator transparent
+  if (currentScope().contains(std::string(varName))) {
+    logzy::error(
+        "There already exists a variable with name {} in current scope.",
+        varName);
+    ReturnValue = nullptr;
+    return;
+  }
+
+  llvm::AllocaInst *alloc = allocateInEntryBlock(
+      state->builder.GetInsertBlock()->getParent(), varName);
+
+  currentScope()[std::string(varName)] = alloc;
+
+  auto *rhsValue = generate(rhs);
+  if (rhsValue == nullptr) {
+    logzy::error("couldn't genreate code for let '{}' rhs expression", varName);
+    ReturnValue = nullptr;
+    return;
+  }
+
+  state->builder.CreateStore(rhsValue, alloc);
+
+  ReturnValue = rhsValue;
+}
+
+void CodeGenVisitor::visit(Function *function) {
   std::unique_ptr<FunctionPrototype> &prototype = function->prototype;
 
   // Checking if function was previously declared.
@@ -351,7 +376,7 @@ void CodeGenVisitor::visit(Function *function) {
 
   // currentScope->clear();
 
-  beginScope(); // ??? double scopes for function and body
+  beginScope();  // ??? double scopes for function and body
   for (auto &arg : func->args()) {
     auto allocated = allocateInEntryBlock(func, arg.getName());
     state->builder.CreateStore(&arg, allocated);

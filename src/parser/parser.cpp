@@ -1,13 +1,15 @@
 #include "parser.hpp"
-#include "debug.hpp"
-#include "lexer.hpp"
-#include "logzy/logzy.hpp"
-#include "utility.hpp"
+
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <utility>
+
+#include "debug.hpp"
+#include "lexer.hpp"
+#include "logzy/logzy.hpp"
+#include "utility.hpp"
 
 static std::unordered_map<TokenType, int> precedences{
     {TokenType::Assign, 2},    {TokenType::Plus, 10},   {TokenType::Minus, 10},
@@ -24,35 +26,37 @@ static constexpr auto getPrecedence(TokenType type) -> int {
 
 [[nodiscard]] auto Parser::parsePrimary() -> std::unique_ptr<AstNode> {
   switch (currentToken_.type) {
-  case TokenType::Identifier:
-    return parseIdentifier();
-  case TokenType::Number:
-    return parseNumber();
-  case TokenType::ParenBegin:
-    return parseParentheses();
-  case TokenType::CurlyBegin:
-    return parseBlock();
-  case TokenType::If:
-    return parseIfElse();
-  default:
-    logzy::critical("Unsupported token {}", currentToken_);
-    DEBUG_ASSERT(false);
-    break;
+    case TokenType::Identifier:
+      return parseIdentifier();
+    case TokenType::Number:
+      return parseNumber();
+    case TokenType::ParenBegin:
+      return parseParentheses();
+    case TokenType::CurlyBegin:
+      return parseBlock();
+    case TokenType::If:
+      return parseIfElse();
+    case TokenType::Let:
+      return parseLet();
+    default:
+      logzy::critical("Unsupported token {}", currentToken_);
+      DEBUG_ASSERT(false);
+      break;
   }
 }
 
-#define ASSERT_TOKEN_TYPE(tokenType)                                           \
-  DEBUG_ASSERT(currentToken_.type == tokenType,                                \
-               std::format("Expected token type {} and got {}",                \
+#define ASSERT_TOKEN_TYPE(tokenType)                            \
+  DEBUG_ASSERT(currentToken_.type == tokenType,                 \
+               std::format("Expected token type {} and got {}", \
                            std::to_underlying(tokenType), currentToken_));
 #define ASSERT_NUMBER_TOKEN ASSERT_TOKEN_TYPE(TokenType::Number);
 #define ASSERT_IDENTIFIER_TOKEN ASSERT_TOKEN_TYPE(TokenType::Identifier);
-#define ASSERT_TOKEN_VALUE(tokenValue)                                         \
-  do {                                                                         \
-    DEBUG_ASSERT(currentToken_.value.length() > 0);                            \
-    DEBUG_ASSERT(currentToken_.value == tokenValue,                            \
-                 std::format("currentToken_={}, tokenValue='{}'",              \
-                             currentToken_, tokenValue));                      \
+#define ASSERT_TOKEN_VALUE(tokenValue)                            \
+  do {                                                            \
+    DEBUG_ASSERT(currentToken_.value.length() > 0);               \
+    DEBUG_ASSERT(currentToken_.value == tokenValue,               \
+                 std::format("currentToken_={}, tokenValue='{}'", \
+                             currentToken_, tokenValue));         \
   } while (0);
 
 [[nodiscard]]
@@ -69,7 +73,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
 
   logzy::trace("Parsing identifier '{}'", currentToken_.value);
   std::string_view identifier = currentToken_.value;
-  nextToken(); // Skipping identifier
+  nextToken();  // Skipping identifier
 
   // Normal ident
   if (currentToken_.type != TokenType::ParenBegin) {
@@ -77,7 +81,7 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
     return std::make_unique<VariableAstNode>(identifier);
   }
 
-  if (currentToken_.type == TokenType::ParenBegin) { // Call
+  if (currentToken_.type == TokenType::ParenBegin) {  // Call
     std::vector<std::unique_ptr<AstNode>> args;
 
     while (true) {
@@ -208,11 +212,9 @@ auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
   }
 }
 
-[[nodiscard]] auto
-Parser::parseBinaryExpressionRhs(int expressionPrecedence,
-                                 std::unique_ptr<AstNode> lhs)
+[[nodiscard]] auto Parser::parseBinaryExpressionRhs(
+    int expressionPrecedence, std::unique_ptr<AstNode> lhs)
     -> std::unique_ptr<AstNode> {
-
   while (true) {
     int tokenPrecedence = getPrecedence(currentToken_.type);
 
@@ -231,7 +233,6 @@ Parser::parseBinaryExpressionRhs(int expressionPrecedence,
 
     int nextPrecedence = getPrecedence(currentToken_.type);
     if (tokenPrecedence < nextPrecedence) {
-
       logzy::trace(
           "next operator has higher precedence curr: {}={} vs next: {}={}",
           binOp, tokenPrecedence, currentToken_.type, nextPrecedence);
@@ -247,8 +248,7 @@ Parser::parseBinaryExpressionRhs(int expressionPrecedence,
   }
 }
 
-[[nodiscard]] auto
-Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
+[[nodiscard]] auto Parser::parseBlock(std::optional<std::string_view> blockName)
     -> std::unique_ptr<BlockAstNode> {
   logzy::debug("Parsing block");
   ASSERT_TOKEN_TYPE(TokenType::CurlyBegin);
@@ -277,9 +277,9 @@ Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
       std::move(expressions));
 }
 
-[[nodiscard]] auto Parser::parseIfElse() -> std::unique_ptr<AstNode> {
-   logzy::trace("Parsing if else");
-  nextToken(); // Consuming if
+[[nodiscard]] auto Parser::parseIfElse() -> std::unique_ptr<IfElseAstNode> {
+  logzy::trace("Parsing if else");
+  nextToken();  // Consuming if
 
   auto condition = parseExpression();
   if (condition == nullptr) {
@@ -304,4 +304,24 @@ Parser::parseBlock(std::optional<std::string_view> blockName) noexcept
 
   return std::make_unique<IfElseAstNode>(
       std::move(condition), std::move(ifBlock), std::move(elseBlock));
+}
+
+[[nodiscard]] auto Parser::parseLet() -> std::unique_ptr<LetAstNode> {
+  ASSERT_TOKEN_TYPE(TokenType::Let);
+  nextToken();
+
+  ASSERT_TOKEN_TYPE(TokenType::Identifier);
+  std::string_view varName = currentToken_.value;
+  nextToken();
+
+  ASSERT_TOKEN_TYPE(TokenType::Assign);
+  nextToken();
+
+  auto rhs = parseExpression();
+  if (rhs == nullptr) {
+    logzy::error("couldn't parse let expression rhs");
+    return nullptr;
+  }
+
+  return std::make_unique<LetAstNode>(varName, std::move(rhs));
 }

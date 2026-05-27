@@ -3,7 +3,7 @@
 #include <optional>
 #include <string_view>
 
-enum class TokenType {
+enum class TokenType : char {
   Identifier,
   Number,
   Plus,
@@ -19,8 +19,8 @@ enum class TokenType {
   Assign,
   If,
   Else,
+  Let,
   Unknown,
-  __SizeGuard,
 };
 
 struct Token {
@@ -29,8 +29,8 @@ struct Token {
 };
 
 struct Lexer {
-public:
-  Lexer(std::string_view source) noexcept;
+ public:
+  explicit Lexer(std::string_view source) noexcept;
 
   [[nodiscard]] auto nextToken() -> Token;
   [[nodiscard]] auto readIdentifier() noexcept
@@ -44,86 +44,86 @@ public:
 
   [[nodiscard]] auto isFinished() const noexcept -> bool;
 
-private:
+ private:
   std::string_view source_;
 };
 
 template <>
 struct std::formatter<TokenType> : std::formatter<std::string_view> {
-
-  auto format(TokenType s, std::format_context &ctx) const {
+  auto format(TokenType tokenString, std::format_context &ctx) const {
     std::string_view name;
-    switch (s) {
-    case TokenType::Identifier:
-      name = "Identifier";
-      break;
-    case TokenType::Number:
-      name = "Number";
-      break;
-    case TokenType::Plus:
-      name = "Plus";
-      break;
-    case TokenType::Minus:
-      name = "Minus";
-      break;
-    case TokenType::Divide:
-      name = "Divide";
-      break;
-    case TokenType::Multiply:
-      name = "Multiply";
-      break;
-    case TokenType::ParenBegin:
-      name = "ParenBegin";
-      break;
-    case TokenType::ParenEnd:
-      name = "ParenEnd";
-      break;
-    case TokenType::Function:
-      name = "Function";
-      break;
-    case TokenType::Comma:
-      name = "Comma";
-      break;
-    case TokenType::CurlyBegin:
-      name = "CurlyBegin";
-      break;
-    case TokenType::CurlyEnd:
-      name = "CurlyEnd";
-      break;
-    case TokenType::Assign:
-      name = "Assign";
-      break;
-    case TokenType::If:
-      name = "If";
-      break;
-    case TokenType::Else:
-      name = "Else";
-      break;
-    case TokenType::Unknown:
-      name = "Unknown";
-      break;
-    case TokenType::__SizeGuard:
-      name = "__SizeGuard";
-      break;
-    default:
-      name = "InvalidToken";
-      break;
+    switch (tokenString) {
+      case TokenType::Identifier:
+        name = "Identifier";
+        break;
+      case TokenType::Number:
+        name = "Number";
+        break;
+      case TokenType::Plus:
+        name = "Plus";
+        break;
+      case TokenType::Minus:
+        name = "Minus";
+        break;
+      case TokenType::Divide:
+        name = "Divide";
+        break;
+      case TokenType::Multiply:
+        name = "Multiply";
+        break;
+      case TokenType::ParenBegin:
+        name = "ParenBegin";
+        break;
+      case TokenType::ParenEnd:
+        name = "ParenEnd";
+        break;
+      case TokenType::Function:
+        name = "Function";
+        break;
+      case TokenType::Comma:
+        name = "Comma";
+        break;
+      case TokenType::CurlyBegin:
+        name = "CurlyBegin";
+        break;
+      case TokenType::CurlyEnd:
+        name = "CurlyEnd";
+        break;
+      case TokenType::Assign:
+        name = "Assign";
+        break;
+      case TokenType::If:
+        name = "If";
+        break;
+      case TokenType::Else:
+        name = "Else";
+        break;
+      case TokenType::Let:
+        name = "Let";
+        break;
+      case TokenType::Unknown:
+        name = "Unknown";
+        break;
+      default:
+        name = "InvalidToken";
+        break;
     }
     return std::formatter<std::string_view>::format(name, ctx);
   }
 };
 
-template <> struct std::formatter<Token> {
-  constexpr auto parse(std::format_parse_context &ctx) {
-    auto it = ctx.begin();
-    if (it != ctx.end() && *it != '}') {
+template <>
+struct std::formatter<Token> {
+  static constexpr auto parse(std::format_parse_context &ctx) {
+    auto iter = ctx.begin();
+    if (iter != ctx.end() && *iter != '}') {
       throw std::format_error(
           "Brak obslugi niestandardowych specyfikatorow dla Token");
     }
-    return it;
+    return iter;
   }
 
-  auto format(const Token &token, std::format_context &ctx) const {
+  static auto format(const Token &token, std::format_context &ctx) {
     return std::format_to(ctx.out(), "Token(type: {}, value: \"{}\")",
                           token.type, token.value);
   }

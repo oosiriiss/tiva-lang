@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+
 #include <gtest/gtest.h>
 
 TEST(LexerTest, IsFinished) {
@@ -180,7 +181,6 @@ TEST(LexerTest, NextToken_ParsesParentheses) {
   EXPECT_EQ(t4.value, ")");
 }
 
-
 TEST(LexerTest, NextToken_ParsesMixedExpression) {
   Lexer lexer("( foo + 42 ) * 3.14 / bar");
 
@@ -214,11 +214,12 @@ TEST(LexerTest, NextToken_ExpressionWithoutSpaces) {
     std::string_view value;
   };
 
-  std::vector<ExpectedToken> expected = {{TokenType::Identifier, "a"},
-                                         {TokenType::Plus, "+"},
-                                         {TokenType::Number, "12.5"},
-                                         {TokenType::Multiply, "*"},
-                                         {TokenType::Identifier, "b"}};
+  std::vector<ExpectedToken> expected = {
+      {.type = TokenType::Identifier, .value = "a"},
+      {.type = TokenType::Plus, .value = "+"},
+      {.type = TokenType::Number, .value = "12.5"},
+      {.type = TokenType::Multiply, .value = "*"},
+      {.type = TokenType::Identifier, .value = "b"}};
 
   for (size_t i = 0; i < expected.size(); ++i) {
     auto token = lexer.nextToken();

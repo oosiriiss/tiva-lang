@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "lexer.hpp"
+#include "semantic/types.hpp"
 #include "utility.hpp"
 
 struct CompilerState;
@@ -14,6 +15,9 @@ class AstNode {
  public:
   virtual ~AstNode() = default;
   virtual void accept(AstNodeVisitor *) = 0;
+
+ public:
+  TivaType resolvedType = TivaType::Unknown;
 };
 
 struct IntegerAstNode : public AstNode {
@@ -137,6 +141,7 @@ struct Function : public AstNode {
 };
 
 struct AstNodeVisitor {
+  void dispatch(AstNode *node) { node->accept(this); }
   virtual void visit(IntegerAstNode *) = 0;
   virtual void visit(FloatAstNode *) = 0;
   virtual void visit(VariableAstNode *) = 0;

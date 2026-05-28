@@ -33,6 +33,10 @@ add_library(
    ./src/codegen/module.hpp
    ./src/codegen/module.cpp
 
+   ./src/semantic/semantic_visitor.hpp
+   ./src/semantic/semantic_visitor.cpp
+   ./src/semantic/types.hpp
+
    ./src/debug.hpp
 )
 

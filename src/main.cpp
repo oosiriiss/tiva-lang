@@ -10,9 +10,8 @@ int main() {
 
   std::string_view exampleCode =
       R"(fn testFn(a,b,c) {
-      let d = a + b + c
-      let e = d + a
-      e
+      
+      a + b + 6.7
    })";
 
   Parser parser(exampleCode);

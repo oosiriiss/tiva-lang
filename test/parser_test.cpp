@@ -1,4 +1,5 @@
 #include "parser/parser.hpp"
+
 #include <gtest/gtest.h>
 
 std::unique_ptr<Parser> createParser(std::string_view source) {
@@ -11,9 +12,11 @@ TEST(ParserTest, ParsesNumberCorrectly) {
   auto parser = createParser("42.5");
   auto node = parser->parseNumber();
 
-  ASSERT_NE(node, nullptr) << "Parser should return a valid node";
+  auto *flt = dynamic_cast<FloatAstNode *>(node.get());
 
-  EXPECT_DOUBLE_EQ(node->val, 42.5);
+  ASSERT_NE(flt, nullptr) << "Parser should return a valid float";
+
+  EXPECT_DOUBLE_EQ(flt->val, 42.5);
 }
 
 TEST(ParserTest, ParsesVariableCorrectly) {
@@ -41,7 +44,7 @@ TEST(ParserTest, ParsesSimpleBinaryExpression) {
   ASSERT_NE(lhs, nullptr);
   EXPECT_EQ(lhs->name, "a");
 
-  auto rhs = dynamic_cast<NumberAstNode *>(binaryNode->rhs.get());
+  auto rhs = dynamic_cast<IntegerAstNode *>(binaryNode->rhs.get());
   ASSERT_NE(rhs, nullptr);
   EXPECT_DOUBLE_EQ(rhs->val, 5.0);
 }
@@ -52,7 +55,7 @@ TEST(ParserTest, ParsesParenthesesCorrectly) {
 
   ASSERT_NE(baseNode, nullptr);
 
-  auto numNode = dynamic_cast<NumberAstNode *>(baseNode.get());
+  auto numNode = dynamic_cast<IntegerAstNode *>(baseNode.get());
   ASSERT_NE(numNode, nullptr)
       << "Parenthesized expression should return the enclosed node";
   EXPECT_DOUBLE_EQ(numNode->val, 10.0);
@@ -67,15 +70,15 @@ TEST(ParserTest, HandlesOperatorPrecedence) {
   auto plusNode = dynamic_cast<BinaryExprAstNode *>(rootNode.get());
   ASSERT_NE(plusNode, nullptr);
 
-  auto lhsNum = dynamic_cast<NumberAstNode *>(plusNode->lhs.get());
+  auto lhsNum = dynamic_cast<IntegerAstNode *>(plusNode->lhs.get());
   ASSERT_NE(lhsNum, nullptr);
   EXPECT_DOUBLE_EQ(lhsNum->val, 1.0);
 
   auto mulNode = dynamic_cast<BinaryExprAstNode *>(plusNode->rhs.get());
   ASSERT_NE(mulNode, nullptr);
 
-  auto mulLhs = dynamic_cast<NumberAstNode *>(mulNode->lhs.get());
-  auto mulRhs = dynamic_cast<NumberAstNode *>(mulNode->rhs.get());
+  auto mulLhs = dynamic_cast<IntegerAstNode *>(mulNode->lhs.get());
+  auto mulRhs = dynamic_cast<IntegerAstNode *>(mulNode->rhs.get());
 
   ASSERT_NE(mulLhs, nullptr);
   ASSERT_NE(mulRhs, nullptr);

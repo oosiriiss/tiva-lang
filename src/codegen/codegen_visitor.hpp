@@ -12,7 +12,8 @@ class CodeGenVisitor : public AstNodeVisitor {
 public:
   constexpr CodeGenVisitor(CompilerState *state) noexcept : state{state} {}
 
-  void visit(NumberAstNode *) override;
+  void visit(IntegerAstNode *) override;
+  void visit(FloatAstNode *) override;
   void visit(VariableAstNode *) override;
   void visit(AssignmentAstNode *) override;
   void visit(CallAstNode *) override;

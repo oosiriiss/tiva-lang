@@ -73,11 +73,18 @@ auto CodeGenVisitor::allocateInEntryBlock(llvm::Function *func,
                                    nullptr, variableName);
 }
 
-void CodeGenVisitor::visit(NumberAstNode *number) {
+void CodeGenVisitor::visit(IntegerAstNode *number) {
   logzy::trace("generating code for number '{}'", number->val);
   ReturnValue = llvm::ConstantInt::get(state->context,
                                        llvm::APInt(32, number->val, true));
 }
+
+void CodeGenVisitor::visit(FloatAstNode *number) {
+  logzy::trace("generating code for number '{}'", number->val);
+  ReturnValue =
+      llvm::ConstantFP::get(state->context, llvm::APFloat(number->val));
+}
+
 void CodeGenVisitor::visit(VariableAstNode *variable) {
   logzy::trace("generating code for variable '{}' (r-value)", variable->name);
   auto val = currentScope().find(variable->name);
@@ -169,23 +176,59 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binaryExpr) {
     return;
   }
 
-  switch (op) {
-    case TokenType::Plus:
-      ReturnValue = state->builder.CreateAdd(left, right, "addtmp");
-      break;
-    case TokenType::Minus:
-      ReturnValue = state->builder.CreateSub(left, right, "subtmp");
-      break;
-    case TokenType::Divide:
-      ReturnValue = state->builder.CreateSDiv(left, right, "divtmp");
-      break;
-    case TokenType::Multiply:
-      ReturnValue = state->builder.CreateMul(left, right, "multmp");
-      break;
-    default:
-      logzy::error("invalid operator '{}'", op);
-      ReturnValue = nullptr;
-      break;
+  // Dirty way just to check working of floats
+  llvm::Type *leftTy = left->getType();
+  llvm::Type *rightTy = right->getType();
+
+  if (leftTy->isDoubleTy() && rightTy->isIntegerTy()) {
+    logzy::trace("Upcasting right operand to float");
+    right = state->builder.CreateSIToFP(right, leftTy, "upcast_tmp");
+
+  } else if (leftTy->isIntegerTy() && rightTy->isDoubleTy()) {
+    logzy::trace("Upcasting left operand to float");
+    left = state->builder.CreateSIToFP(left, rightTy, "upcast_tmp");
+  }
+
+  bool isFloat = (leftTy->isDoubleTy() || rightTy->isDoubleTy());
+
+  if (isFloat) {
+    switch (op) {
+      case TokenType::Plus:
+        ReturnValue = state->builder.CreateFAdd(left, right, "addftmp");
+        break;
+      case TokenType::Minus:
+        ReturnValue = state->builder.CreateFSub(left, right, "subftmp");
+        break;
+      case TokenType::Divide:
+        ReturnValue = state->builder.CreateFDiv(left, right, "divftmp");
+        break;
+      case TokenType::Multiply:
+        ReturnValue = state->builder.CreateFMul(left, right, "mulftmp");
+        break;
+      default:
+        logzy::error("invalid operator '{}'", op);
+        ReturnValue = nullptr;
+        break;
+    }
+  } else {
+    switch (op) {
+      case TokenType::Plus:
+        ReturnValue = state->builder.CreateAdd(left, right, "addtmp");
+        break;
+      case TokenType::Minus:
+        ReturnValue = state->builder.CreateSub(left, right, "subtmp");
+        break;
+      case TokenType::Divide:
+        ReturnValue = state->builder.CreateSDiv(left, right, "divtmp");
+        break;
+      case TokenType::Multiply:
+        ReturnValue = state->builder.CreateMul(left, right, "multmp");
+        break;
+      default:
+        logzy::error("invalid operator '{}'", op);
+        ReturnValue = nullptr;
+        break;
+    }
   }
 }
 void CodeGenVisitor::visit(BlockAstNode *block) {

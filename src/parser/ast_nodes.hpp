@@ -16,10 +16,19 @@ class AstNode {
   virtual void accept(AstNodeVisitor *) = 0;
 };
 
-struct NumberAstNode : public AstNode {
+struct IntegerAstNode : public AstNode {
+  std::uint64_t val;
+
+  constexpr IntegerAstNode(std::string_view numStr)
+      : val{util::toNumber<std::uint64_t>(numStr)} {}
+
+  void accept(AstNodeVisitor *) override;
+};
+
+struct FloatAstNode : public AstNode {
   double val;
 
-  constexpr NumberAstNode(std::string_view numStr)
+  constexpr FloatAstNode(std::string_view numStr)
       : val{util::toNumber<double>(numStr)} {}
 
   void accept(AstNodeVisitor *) override;
@@ -128,7 +137,8 @@ struct Function : public AstNode {
 };
 
 struct AstNodeVisitor {
-  virtual void visit(NumberAstNode *) = 0;
+  virtual void visit(IntegerAstNode *) = 0;
+  virtual void visit(FloatAstNode *) = 0;
   virtual void visit(VariableAstNode *) = 0;
   virtual void visit(AssignmentAstNode *) = 0;
   virtual void visit(CallAstNode *) = 0;

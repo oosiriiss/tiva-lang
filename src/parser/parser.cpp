@@ -60,12 +60,20 @@ static constexpr auto getPrecedence(TokenType type) -> int {
   } while (0);
 
 [[nodiscard]]
-auto Parser::parseNumber() -> std::unique_ptr<NumberAstNode> {
+auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   ASSERT_NUMBER_TOKEN;
   logzy::trace("Parsing number '{}'", currentToken_.value);
-  auto num = std::make_unique<NumberAstNode>(currentToken_.value);
+
+  std::unique_ptr<AstNode> result;
+
+  if (currentToken_.value.contains('.')) {
+    result = std::make_unique<FloatAstNode>(currentToken_.value);
+  } else {
+    result = std::make_unique<IntegerAstNode>(currentToken_.value);
+  }
+
   nextToken();
-  return num;
+  return result;
 }
 
 [[nodiscard]] auto Parser::parseIdentifier() -> std::unique_ptr<AstNode> {

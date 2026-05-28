@@ -13,7 +13,7 @@ class Parser {
 
   [[nodiscard]] auto parsePrimary() -> std::unique_ptr<AstNode>;
 
-  [[nodiscard]] auto parseNumber() -> std::unique_ptr<NumberAstNode>;
+  [[nodiscard]] auto parseNumber() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseIdentifier() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseParentheses() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseFunctionPrototype()

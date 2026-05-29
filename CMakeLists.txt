@@ -28,14 +28,14 @@ add_library(
    ./src/parser/parser.hpp
    ./src/parser/ast_nodes.hpp
 
+   ./src/semantic/semantic_visitor.hpp
+   ./src/semantic/semantic_visitor.cpp
+   ./src/semantic/types.hpp
+
    ./src/codegen/codegen_visitor.cpp
    ./src/codegen/codegen_visitor.hpp
    ./src/codegen/module.hpp
    ./src/codegen/module.cpp
-
-   ./src/semantic/semantic_visitor.hpp
-   ./src/semantic/semantic_visitor.cpp
-   ./src/semantic/types.hpp
 
    ./src/core/translation_unit.hpp
    ./src/core/translation_unit.cpp

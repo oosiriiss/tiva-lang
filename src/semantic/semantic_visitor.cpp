@@ -107,6 +107,11 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
   logzy::trace("Semantic check of LetAstNode");
   dispatch(let->rhs.get());
 
+  if (let->declaredType != TivaType::Unknown &&
+      let->rhs->resolvedType != let->declaredType) {
+    cast(let->rhs, let->declaredType);
+  }
+
   let->resolvedType = let->rhs->resolvedType;
 
   logzy::trace("let expression's of '{}' = '{}' resolved typye is {}",

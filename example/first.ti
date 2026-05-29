@@ -1,6 +1,6 @@
 fn testFn(a,b,c) {
-      let x = a
-      let y = 5.0
-      let z = x + y + b
-      z
-   }
+      let x = 5
+      let y:i32 = 5.0
+      let z:float = 5
+      let w = 5.0
+}

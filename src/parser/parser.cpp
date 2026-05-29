@@ -8,6 +8,7 @@
 
 #include "debug.hpp"
 #include "logzy/logzy.hpp"
+#include "semantic/types.hpp"
 
 namespace {
 
@@ -311,6 +312,17 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   std::string_view varName = currentToken_.value;
   nextToken();
 
+  TivaType declaredType = TivaType::Unknown;
+
+   // Type declaration
+  if (currentToken_.type == TokenType::Colon) {
+    nextToken();
+    expectToken(TokenType::Identifier);  // Declared type
+    // TODO :: Detect invalid types
+    declaredType = fromString(currentToken_.value);
+    nextToken();
+  }
+
   expectToken(TokenType::Assign);
   nextToken();
 
@@ -320,7 +332,7 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
     return nullptr;
   }
 
-  return std::make_unique<LetAstNode>(varName, std::move(rhs));
+  return std::make_unique<LetAstNode>(varName, std::move(rhs), declaredType);
 }
 
 void Parser::expectToken(TokenType type) const {

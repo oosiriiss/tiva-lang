@@ -134,15 +134,17 @@ struct IfElseAstNode : public AstNode {
 struct LetAstNode : public AstNode {
  public:
   constexpr LetAstNode(std::string_view variableName,
-                       std::unique_ptr<AstNode> rhs)
+                       std::unique_ptr<AstNode> rhs, TivaType declaredType)
       : varName{variableName},
-        rhs{std::move(rhs)} {}
+        rhs{std::move(rhs)},
+        declaredType{declaredType} {}
 
   void accept(AstNodeVisitor *visitor) override;
 
  public:
   std::string varName;
   std::unique_ptr<AstNode> rhs;
+  TivaType declaredType;
 };
 
 struct CastNode : public AstNode {

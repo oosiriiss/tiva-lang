@@ -394,6 +394,8 @@ void CodeGenVisitor::visit(LetAstNode *let) {
       allocateInEntryBlock(state_->builder.GetInsertBlock()->getParent(),
                            varName, rhs->resolvedType);
 
+  logzy::trace("variable '{}' allocated on stack", let->varName);
+
   currentScope()[std::string(varName)] = alloc;
 
   auto *rhsValue = generate(rhs);

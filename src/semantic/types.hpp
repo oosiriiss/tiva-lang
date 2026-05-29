@@ -9,6 +9,18 @@ namespace typing {
 
 enum class TivaType : std::uint8_t { Int, Float, Unknown };
 
+[[nodiscard]] constexpr auto fromString(std::string_view type) noexcept
+    -> TivaType {
+  if (type == "i32") {
+    return TivaType::Int;
+  }
+  if (type == "float") {
+    return TivaType::Float;
+  }
+
+  return TivaType::Unknown;
+}
+
 template <>
 struct std::formatter<TivaType> : std::formatter<std::string_view> {
   static auto format(TivaType type, std::format_context &ctx) {

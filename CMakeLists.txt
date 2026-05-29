@@ -36,6 +36,12 @@ add_library(
    ./src/semantic/semantic_visitor.cpp
    ./src/semantic/types.hpp
 
+   ./src/core/translation_unit.hpp
+   ./src/core/translation_unit.cpp
+
+   ./src/driver/compiler.cpp
+   ./src/driver/compiler.hpp
+
    ./src/debug.hpp
 )
 

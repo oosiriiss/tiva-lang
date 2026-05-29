@@ -1,0 +1,6 @@
+fn testFn(a,b,c) {
+      let x = a
+      let y = 5.0
+      let z = x + y + b
+      z
+   }

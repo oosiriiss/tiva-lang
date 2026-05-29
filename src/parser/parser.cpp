@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "debug.hpp"
-#include "lexer.hpp"
 #include "logzy/logzy.hpp"
 
 namespace {

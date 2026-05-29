@@ -1,6 +1,5 @@
 #pragma once
 #include <format>
-#include <optional>
 #include <string_view>
 
 enum class TokenType : char {
@@ -20,6 +19,7 @@ enum class TokenType : char {
   If,
   Else,
   Let,
+  Colon,
   Unknown,
 };
 
@@ -28,27 +28,6 @@ struct Token {
   TokenType type = TokenType::Unknown;
 };
 
-struct Lexer {
- public:
-  explicit Lexer(std::string_view source) noexcept;
-
-  [[nodiscard]] auto nextToken() -> Token;
-  [[nodiscard]] auto readIdentifier() noexcept
-      -> std::optional<std::string_view>;
-  [[nodiscard]] static auto parseKeyword(
-      std::string_view identifierString) noexcept -> std::optional<Token>;
-  [[nodiscard]] auto readNumber() noexcept -> std::optional<std::string_view>;
-  [[nodiscard]] auto readSymbol() noexcept -> std::optional<TokenType>;
-  [[nodiscard]] auto parseBlock() noexcept -> std::optional<Token>;
-  void skipWhitespace() noexcept;
-
-  [[nodiscard]] auto isFinished() const noexcept -> bool;
-
- private:
-  std::string_view source_;
-};
-
-// 1. A reusable, compile-time stringifier
 constexpr auto toString(TokenType type) noexcept -> std::string_view {
   switch (type) {
     case TokenType::Identifier:
@@ -83,6 +62,8 @@ constexpr auto toString(TokenType type) noexcept -> std::string_view {
       return "Else";
     case TokenType::Let:
       return "Let";
+    case TokenType::Colon:
+      return "Colon";
     case TokenType::Unknown:
       return "Unknown";
     default:
@@ -100,12 +81,7 @@ struct std::formatter<TokenType> : std::formatter<std::string_view> {
 template <>
 struct std::formatter<Token> {
   static constexpr auto parse(std::format_parse_context &ctx) {
-    auto iter = ctx.begin();
-    if (iter != ctx.end() && *iter != '}') {
-      throw std::format_error(
-          "Brak obslugi niestandardowych specyfikatorow dla Token");
-    }
-    return iter;
+    return ctx.begin();
   }
 
   static auto format(const Token &token, std::format_context &ctx) {

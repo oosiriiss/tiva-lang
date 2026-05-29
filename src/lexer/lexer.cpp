@@ -1,9 +1,8 @@
 #include "lexer.hpp"
 
-#include <string_view>
+#include <logzy/logzy.hpp>
 #include <utility>
 
-#include "logzy/logzy.hpp"
 #include "utility.hpp"
 
 using util::isDigit;
@@ -165,6 +164,8 @@ namespace {
       return TokenType::CurlyEnd;
     case '=':
       return TokenType::Assign;
+    case ':':
+      return TokenType::Colon;
     default:
       logzy::trace("unknown symbol '{}'", character);
       return std::nullopt;

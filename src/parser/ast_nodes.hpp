@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include "lexer.hpp"
+#include "lexer/lexer.hpp"
 #include "semantic/types.hpp"
 #include "utility.hpp"
 

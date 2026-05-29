@@ -2,7 +2,7 @@
 #include <memory>
 
 #include "ast_nodes.hpp"
-#include "lexer.hpp"
+#include "lexer/lexer.hpp"
 
 class Parser {
  public:

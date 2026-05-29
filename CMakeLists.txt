@@ -19,8 +19,9 @@ FetchContent_MakeAvailable(logzy)
 add_library(
    tiva-compiler-lib
 
-   ./src/lexer.cpp
-   ./src/lexer.hpp
+   ./src/lexer/lexer.cpp
+   ./src/lexer/lexer.hpp
+   ./src/lexer/token.hpp
    ./src/utility.hpp
 
    ./src/parser/parser.cpp

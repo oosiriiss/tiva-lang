@@ -1,4 +1,6 @@
 #include "semantic_visitor.hpp"
+
+#include <cmath>
 #include <utility>
 
 #include "logzy/logzy.hpp"
@@ -42,9 +44,11 @@ void SemanticAnalysisVisitor::visit(BlockAstNode *block) {
     return;
   }
 
-  auto &lastExpression = block->expressions.back();
-  dispatch(lastExpression.get());
+  for (const auto &expr : block->expressions) {
+    dispatch(expr.get());
+  }
 
+  auto &lastExpression = block->expressions.back();
   block->resolvedType = lastExpression->resolvedType;
 }
 void SemanticAnalysisVisitor::visit(IfElseAstNode *ifElse) {
@@ -73,5 +77,4 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
 }
 void SemanticAnalysisVisitor::visit(Function *func) {
   dispatch(func->body.get());
-  logzy::error("Function type is not defined");
 }

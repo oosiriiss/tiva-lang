@@ -4,13 +4,14 @@
 #include "parser/ast_nodes.hpp"
 
 namespace llvm {
-struct AllocaInst;
-class Function;
-} // namespace llvm
+  struct AllocaInst;
+  class Function;
+}  // namespace llvm
 
 class CodeGenVisitor : public AstNodeVisitor {
-public:
-  constexpr CodeGenVisitor(CompilerState *state) noexcept : state{state} {}
+ public:
+  constexpr CodeGenVisitor(CompilerState *state) noexcept
+      : state{state} {}
 
   void visit(IntegerAstNode *) override;
   void visit(FloatAstNode *) override;
@@ -24,7 +25,7 @@ public:
   // void visit(FunctionPrototype *) override; // No need for it to be a node
   void visit(Function *) override;
 
-private:
+ private:
   using Scope = std::unordered_map<std::string, llvm::AllocaInst *>;
 
   /**
@@ -49,15 +50,15 @@ private:
 
   void printScope(std::string_view message);
 
-  auto allocateInEntryBlock(llvm::Function *func, std::string_view variableName)
-      -> llvm::AllocaInst *;
+  auto allocateInEntryBlock(llvm::Function *func, std::string_view variableName,
+                            TivaType type) -> llvm::AllocaInst *;
 
   constexpr auto currentScope() -> Scope &;
   constexpr void beginScope();
   constexpr void endScope();
 
-private:
-  std::vector<Scope> scopeValues{Scope{}}; // Global scope
+ private:
+  std::vector<Scope> scopeValues{Scope{}};  // Global scope
   CompilerState *state{nullptr};
 
   // Special member that acts as a 'return value' from latest node visit. Every
@@ -67,10 +68,10 @@ private:
 };
 
 constexpr auto CodeGenVisitor::currentScope() -> Scope & {
-
   if (scopeValues.empty()) {
-    throw std::logic_error("Scope values is empty. There must have been a "
-                           "skill issue as global scope disappeared");
+    throw std::logic_error(
+        "Scope values is empty. There must have been a "
+        "skill issue as global scope disappeared");
   }
 
   return scopeValues.back();
@@ -83,8 +84,9 @@ constexpr void CodeGenVisitor::beginScope() {
 }
 constexpr void CodeGenVisitor::endScope() {
   if (scopeValues.empty()) {
-    throw std::logic_error("Trying to pop an empty scope. There must be a "
-                           "mismatch between creating and deleting scopes");
+    throw std::logic_error(
+        "Trying to pop an empty scope. There must be a "
+        "mismatch between creating and deleting scopes");
   }
 
   DEBUG_ONLY(printScope("Symbols in before ending scope:"));

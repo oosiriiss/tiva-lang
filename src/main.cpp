@@ -13,7 +13,8 @@ auto main() -> int {
 
   std::string_view exampleCode =
       R"(fn testFn(a,b,c) {
-      a + b + 6.7
+      let x = 5.0
+      a + b + x
    })";
 
   Parser parser(exampleCode);

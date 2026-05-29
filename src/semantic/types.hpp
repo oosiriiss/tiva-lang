@@ -3,11 +3,18 @@
 #include <format>
 #include <string_view>
 
+namespace llvm {
+  struct Type;
+  struct LLVMContext;
+}  // namespace llvm
+
 namespace typing {
   constexpr auto INT_BITS = 32;
 }
 
 enum class TivaType : std::uint8_t { Int, Float, Unknown };
+
+[[nodiscard]] auto toLlvm(llvm::LLVMContext& ctx, TivaType type) -> llvm::Type*;
 
 [[nodiscard]] constexpr auto fromString(std::string_view type) noexcept
     -> TivaType {
@@ -23,7 +30,7 @@ enum class TivaType : std::uint8_t { Int, Float, Unknown };
 
 template <>
 struct std::formatter<TivaType> : std::formatter<std::string_view> {
-  static auto format(TivaType type, std::format_context &ctx) {
+  static auto format(TivaType type, std::format_context& ctx) {
     std::string_view name;
 
 #define TYPE_FORMAT(enumName) \

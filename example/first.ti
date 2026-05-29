@@ -1,6 +1,7 @@
-fn testFn(a,b,c) {
-      let x = 5
-      let y:i32 = 5.0
-      let z:float = 5
-      let w = 5.0
+fn testFn(a:i32,b:float,c:i32) {
+      let x = b
+
+      let z = 5 + a
+      let f = z + x
+      f
 }

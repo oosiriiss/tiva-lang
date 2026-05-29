@@ -20,6 +20,7 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/StandardInstrumentations.h>
+#include <llvm/Support/Casting.h>
 #include <llvm/Support/CodeGen.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
@@ -67,21 +68,7 @@ void CodeGenVisitor::printScope(std::string_view message) {
 auto CodeGenVisitor::allocateInEntryBlock(llvm::Function *func,
                                           std::string_view variableName,
                                           TivaType type) -> llvm::AllocaInst * {
-  llvm::Type *llvmType = nullptr;
-
-  switch (type) {
-    case TivaType::Int:
-      llvmType = llvm::Type::getInt32Ty(state_->context);
-      break;
-    case TivaType::Float:
-      llvmType = llvm::Type::getDoubleTy(state_->context);
-      break;
-    case TivaType::Unknown:
-      logzy::error("Unknowntype encountered. couldn't allocate variable '{}'",
-                   variableName);
-      break;
-  }
-
+  llvm::Type *llvmType = toLlvm(state_->context, type);
   llvm::IRBuilder<> entryBuilder(&func->getEntryBlock(),
                                  func->getEntryBlock().begin());
 
@@ -351,29 +338,6 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
   ReturnValue = phi;
 }
 
-namespace {
-  auto createFunction(FunctionPrototype *proto, CompilerState &state)
-      -> llvm::Function * {
-    std::vector<std::string> &args = proto->args;
-    // for now all args are ints
-    std::vector<llvm::Type *> argTypes(args.size(),
-                                       llvm::Type::getInt32Ty(state.context));
-    llvm::FunctionType *funcType = llvm::FunctionType::get(
-        llvm::Type::getInt32Ty(state.context), argTypes, false);
-    llvm::Function *func = llvm::Function::Create(
-        funcType, llvm::Function::ExternalLinkage, proto->name, *state.module);
-
-    size_t idx = 0;
-    for (auto &arg : func->args()) {
-      DEBUG_ASSERT(idx < args.size(),
-                   std::format("idx={} args={}", idx, args.size()));
-      arg.setName(args[idx++]);
-    }
-
-    return func;
-  }
-}  // namespace
-
 void CodeGenVisitor::visit(LetAstNode *let) {
   logzy::trace("Generting code for let '{}' = <expr>", let->varName);
   std::string_view varName = let->varName;
@@ -439,20 +403,52 @@ void CodeGenVisitor::visit(CastNode *cast) {
   logzy::error("Invalid conversion from int({}) to int({})", cast->resolvedType,
                cast->targetType);
 }
+
+void CodeGenVisitor::visit(FunctionPrototype *proto) {
+  logzy::trace("Generating code for function '{}' prototype", proto->name);
+  llvm::Function *func = state_->module->getFunction(proto->name);
+  if (func != nullptr) {
+    logzy::trace("Function already defined");
+    ReturnValue = func;
+    return;
+  }
+
+  logzy::trace("Mapping parameters to llvm types");
+  auto &params = proto->params;
+  std::vector<llvm::Type *> paramTypes;
+  paramTypes.reserve(proto->params.size());
+  for (const auto &param : proto->params) {
+    paramTypes.emplace_back(toLlvm(state_->context, param.declaredType));
+  }
+
+  logzy::trace("Creating the function");
+
+  llvm::FunctionType *funcType = llvm::FunctionType::get(
+      llvm::Type::getInt32Ty(state_->context), paramTypes, false);
+  func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage,
+                                proto->name, *state_->module);
+
+  logzy::trace("Setting function parameter names");
+  size_t paramIdx = 0;
+  for (auto &arg : func->args()) {
+    DEBUG_ASSERT(paramIdx < params.size(),
+                 std::format("idx={} args={}", paramIdx, params.size()));
+    arg.setName(params[paramIdx++].name);
+  }
+
+  logzy::trace("Function created");
+  ReturnValue = func;
+}
+
 void CodeGenVisitor::visit(Function *func) {
   std::unique_ptr<FunctionPrototype> &prototype = func->prototype;
 
   // Checking if function was previously declared.
   logzy::debug("Generating code for function '{}'", prototype->name);
-  llvm::Function *llvmFunc = state_->module->getFunction(prototype->name);
-  if (llvmFunc == nullptr) {
-    logzy::debug("Generating code for function '{}' prototype",
-                 prototype->name);
-    llvmFunc = createFunction(prototype.get(), *state_);
-  }
+  auto *llvmFunc = llvm::dyn_cast<llvm::Function>(generate(prototype.get()));
 
   if (llvmFunc == nullptr) {
-    logzy::error("Couldn't create function '{}'", prototype->name);
+    logzy::error("Couldn't create function '{}' prototype", prototype->name);
     ReturnValue = nullptr;
     return;
   }
@@ -471,7 +467,8 @@ void CodeGenVisitor::visit(Function *func) {
   size_t currentArgIndex = 0;
   for (auto &arg : llvmFunc->args()) {
     auto *allocated =
-        allocateInEntryBlock(llvmFunc, arg.getName(), TivaType::Int);
+        allocateInEntryBlock(llvmFunc, arg.getName(),
+                             prototype->params[currentArgIndex++].declaredType);
     state_->builder.CreateStore(&arg, allocated);
     currentScope()[std::string(arg.getName())] = allocated;
   }

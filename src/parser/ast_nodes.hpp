@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
 #include "semantic/types.hpp"
 #include "utility.hpp"
 
@@ -161,16 +161,23 @@ struct CastNode : public AstNode {
   TivaType targetType;
 };
 
-struct FunctionPrototype {
+struct Parameter {
+  std::string name;
+  TivaType declaredType;
+};
+
+struct FunctionPrototype : public AstNode {
  public:
   constexpr FunctionPrototype(std::string_view name,
-                              std::vector<std::string> &&argNames)
+                              std::vector<Parameter> &&params)
       : name{name},
-        args{std::move(argNames)} {}
+        params{std::move(params)} {}
+
+  void accept(AstNodeVisitor *visitor) override;
 
  public:
   std::string name;
-  std::vector<std::string> args;
+  std::vector<Parameter> params;
 };
 
 struct Function : public AstNode {
@@ -205,6 +212,7 @@ struct AstNodeVisitor {
   virtual void visit(IfElseAstNode *) = 0;
   virtual void visit(LetAstNode *) = 0;
   virtual void visit(CastNode *) = 0;
+  virtual void visit(FunctionPrototype *) = 0;
   virtual void visit(Function *) = 0;
 };
 
@@ -233,6 +241,9 @@ inline void IfElseAstNode::accept(AstNodeVisitor *visitor) {
   visitor->visit(this);
 }
 inline void LetAstNode::accept(AstNodeVisitor *visitor) {
+  visitor->visit(this);
+}
+inline void FunctionPrototype::accept(AstNodeVisitor *visitor) {
   visitor->visit(this);
 }
 inline void CastNode::accept(AstNodeVisitor *visitor) { visitor->visit(this); }

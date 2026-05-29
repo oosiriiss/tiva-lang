@@ -130,9 +130,16 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
 void SemanticAnalysisVisitor::visit(CastNode * /*cast*/) {
   logzy::warn("Renalyzing ImplicitCastNode");
 }
+
+void SemanticAnalysisVisitor::visit(FunctionPrototype *proto) {
+  for (auto &param : proto->params) {
+    currentScope()[param.name] = param.declaredType;
+  }
+}
 void SemanticAnalysisVisitor::visit(Function *func) {
   logzy::trace("Semantic check of Function");
   beginScope();
+  dispatch(func->prototype.get());
   dispatch(func->body.get());
   endScope();
 }

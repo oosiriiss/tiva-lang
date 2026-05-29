@@ -31,6 +31,7 @@ add_library(
    ./src/semantic/semantic_visitor.hpp
    ./src/semantic/semantic_visitor.cpp
    ./src/semantic/types.hpp
+   ./src/semantic/types.cpp
 
    ./src/codegen/codegen_visitor.cpp
    ./src/codegen/codegen_visitor.hpp

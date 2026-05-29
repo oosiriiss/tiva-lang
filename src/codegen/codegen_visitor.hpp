@@ -23,6 +23,7 @@ class CodeGenVisitor : public AstNodeVisitor {
   void visit(IfElseAstNode *ifElse) override;
   void visit(LetAstNode *let) override;
   void visit(CastNode *cast) override;
+  void visit(FunctionPrototype *proto) override;
   void visit(Function *func) override;
 
  private:

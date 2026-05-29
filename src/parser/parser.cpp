@@ -1,5 +1,7 @@
 #include "parser.hpp"
 
+#include <llvm/IR/Intrinsics.h>
+
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -7,6 +9,7 @@
 #include <utility>
 
 #include "debug.hpp"
+#include "lexer/token.hpp"
 #include "logzy/logzy.hpp"
 #include "semantic/types.hpp"
 
@@ -141,18 +144,32 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   nextToken();
   expectToken(TokenType::ParenBegin);
 
-  std::vector<std::string> argNames;
+  std::vector<Parameter> params;
   nextToken();
-  while (currentToken_.type == TokenType::Identifier) {
-    argNames.emplace_back(currentToken_.value);
+  while (currentToken_.type != TokenType::ParenEnd) {
+    std::string name{currentToken_.value};
     nextToken();
+
+    expectToken(TokenType::Colon);
+    nextToken();
+    expectToken(TokenType::Identifier);
+    TivaType declaredType = fromString(currentToken_.value);
+    if (declaredType == TivaType::Unknown) {
+      logzy::error("Expected parameter's type, but got: '{}'",
+                   currentToken_.value);
+      return nullptr;
+    }
+    nextToken();
+
+    params.emplace_back(std::move(name), declaredType);
 
     if (currentToken_.type == TokenType::Comma) {
       nextToken();
-    } else if (currentToken_.type == TokenType::ParenEnd) {
-      break;
-    } else {
-      logzy::error("Expected ',' or ')', but got {}", currentToken_);
+      continue;
+    }
+
+    if (currentToken_.type != TokenType::ParenEnd) {
+      logzy::error("Expected function's prototype closing parenthesis");
       return nullptr;
     }
   }
@@ -160,7 +177,7 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   expectToken(TokenType::ParenEnd);
   nextToken();
 
-  return std::make_unique<FunctionPrototype>(functionName, std::move(argNames));
+  return std::make_unique<FunctionPrototype>(functionName, std::move(params));
 }
 [[nodiscard]] auto Parser::parseFunction() -> std::unique_ptr<Function> {
   expectToken(TokenType::Function);
@@ -271,7 +288,7 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   return std::make_unique<BlockAstNode>(
       (blockName.has_value())
           ? *blockName
-          : std::string("block_{}") + std::to_string(BlockCounter),
+          : std::string("block_") + std::to_string(BlockCounter),
       std::move(expressions));
 }
 
@@ -314,7 +331,7 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
 
   TivaType declaredType = TivaType::Unknown;
 
-   // Type declaration
+  // Type declaration
   if (currentToken_.type == TokenType::Colon) {
     nextToken();
     expectToken(TokenType::Identifier);  // Declared type

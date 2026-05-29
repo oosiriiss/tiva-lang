@@ -35,11 +35,13 @@
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 
 #include <logzy/logzy.hpp>
+#include <utility>
 
 #include "codegen/module.hpp"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "parser/ast_nodes.hpp"
+#include "semantic/types.hpp"
 
 [[nodiscard]] auto CodeGenVisitor::generate(AstNode *node) -> llvm::Value * {
   ReturnValue = nullptr;
@@ -271,7 +273,6 @@ void CodeGenVisitor::visit(BlockAstNode *block) {
   }
 
   endScope();
-
   // ReturnValue set by the last expression.
 }
 void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
@@ -375,7 +376,6 @@ static auto createFunction(FunctionPrototype *proto, CompilerState &state)
 
 void CodeGenVisitor::visit(LetAstNode *let) {
   logzy::trace("Generting code for let '{}' = <expr>", let->varName);
-
   std::string_view varName = let->varName;
   std::unique_ptr<AstNode> &rhs = let->rhs;
 
@@ -389,7 +389,7 @@ void CodeGenVisitor::visit(LetAstNode *let) {
   }
 
   logzy::trace("variable '{}'s resolved type is: {}", let->varName,
-               +std::to_underlying(rhs->resolvedType));
+               std::to_underlying(rhs->resolvedType));
   llvm::AllocaInst *alloc = allocateInEntryBlock(
       state->builder.GetInsertBlock()->getParent(), varName, rhs->resolvedType);
 
@@ -407,6 +407,27 @@ void CodeGenVisitor::visit(LetAstNode *let) {
   ReturnValue = rhsValue;
 }
 
+void CodeGenVisitor::visit(CastNode *cast) {
+  llvm::Value *operandValue = generate(cast);
+  if (operandValue == nullptr) {
+    logzy::error("couldnt' cast as operand couldn't be evaluated");
+    return;
+  }
+
+  using TivaType::Float;
+  using TivaType::Int;
+
+  if (cast->resolvedType == Int && cast->targetType == Float) {
+    ReturnValue = state->builder.CreateSIToFP(
+        operandValue, llvm::Type::getDoubleTy(state->context),
+        "int_float_cast");
+    return;
+  }
+
+  logzy::error("Invalid conversion from int({}) to int({})",
+               std::to_underlying(cast->resolvedType),
+               std::to_underlying(cast->targetType));
+}
 void CodeGenVisitor::visit(Function *function) {
   std::unique_ptr<FunctionPrototype> &prototype = function->prototype;
 

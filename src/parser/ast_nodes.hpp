@@ -13,6 +13,9 @@ class AstNodeVisitor;
 
 class AstNode {
  public:
+  AstNode() = default;
+  constexpr explicit AstNode(TivaType type) noexcept
+      : resolvedType{type} {}
   virtual ~AstNode() = default;
   virtual void accept(AstNodeVisitor *) = 0;
 
@@ -118,7 +121,18 @@ struct LetAstNode : public AstNode {
   void accept(AstNodeVisitor *) override;
 };
 
-// For now there is no need for it to be an AstNode
+struct CastNode : public AstNode {
+  std::unique_ptr<AstNode> operand;
+  TivaType targetType;
+
+  constexpr CastNode(std::unique_ptr<AstNode> operand,
+                     TivaType targetType) noexcept
+      : AstNode{targetType},
+        operand{std::move(operand)},
+        targetType{targetType} {}
+  void accept(AstNodeVisitor *) override;
+};
+
 struct FunctionPrototype {
   std::string name;
   std::vector<std::string> args;
@@ -126,7 +140,7 @@ struct FunctionPrototype {
   constexpr FunctionPrototype(std::string_view name,
                               std::vector<std::string> &&argNames)
       : name{name},
-        args{argNames} {}
+        args{std::move(argNames)} {}
 };
 
 struct Function : public AstNode {
@@ -151,5 +165,6 @@ struct AstNodeVisitor {
   virtual void visit(BlockAstNode *) = 0;
   virtual void visit(IfElseAstNode *) = 0;
   virtual void visit(LetAstNode *) = 0;
+  virtual void visit(CastNode *) = 0;
   virtual void visit(Function *) = 0;
 };

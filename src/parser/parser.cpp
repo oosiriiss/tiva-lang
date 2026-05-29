@@ -9,6 +9,7 @@
 #include "debug.hpp"
 #include "lexer.hpp"
 #include "logzy/logzy.hpp"
+#include "semantic/types.hpp"
 #include "utility.hpp"
 
 static std::unordered_map<TokenType, int> precedences{

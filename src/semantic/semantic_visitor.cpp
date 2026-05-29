@@ -1,9 +1,11 @@
 #include "semantic_visitor.hpp"
 
-#include <cmath>
+#include <iterator>
 #include <utility>
 
+#include "debug.hpp"
 #include "logzy/logzy.hpp"
+#include "parser/ast_nodes.hpp"
 #include "semantic/types.hpp"
 
 void SemanticAnalysisVisitor::visit(IntegerAstNode *integer) {
@@ -32,6 +34,7 @@ void SemanticAnalysisVisitor::visit(BinaryExprAstNode *binExp) {
   auto leftType = binExp->lhs->resolvedType;
   auto rightType = binExp->rhs->resolvedType;
   // Promotion to float
+
   if (leftType == TivaType::Float || rightType == TivaType::Float) {
     binExp->resolvedType = TivaType::Float;
   } else {
@@ -75,6 +78,35 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
 
   let->resolvedType = let->rhs->resolvedType;
 }
+
+void SemanticAnalysisVisitor::visit(CastNode *cast) {
+  logzy::warn("Renalyzing ImplicitCastNode");
+}
 void SemanticAnalysisVisitor::visit(Function *func) {
   dispatch(func->body.get());
+}
+
+void SemanticAnalysisVisitor::ensureValidTypes(
+    std::unique_ptr<AstNode> &left, std::unique_ptr<AstNode> &right) {
+  DEBUG_ASSERT(left->resolvedType != TivaType::Unknown,
+               "Left's type must be resolved");
+  DEBUG_ASSERT(right->resolvedType != TivaType::Unknown,
+               "Rights's type must be resolved");
+
+  TivaType lft = left->resolvedType;
+  TivaType rgh = right->resolvedType;
+
+  if (lft == rgh) {
+    return;
+  }
+
+  using TivaType::Float;
+  using TivaType::Int;
+
+  // Int promotion to float
+  if (lft == Int && rgh == Float) {
+    cast(left, Float);
+  } else if (lft == Float && rgh == Int) {
+    cast(right, Float);
+  }
 }

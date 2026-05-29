@@ -1,3 +1,3 @@
 #pragma once
 
-enum class TivaType : char { Int, Float, Unknown };
+enum class TivaType : int { Int, Float, Unknown };

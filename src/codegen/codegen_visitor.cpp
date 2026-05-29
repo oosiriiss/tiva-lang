@@ -409,7 +409,8 @@ void CodeGenVisitor::visit(LetAstNode *let) {
 }
 
 void CodeGenVisitor::visit(CastNode *cast) {
-  llvm::Value *operandValue = generate(cast);
+  logzy::trace("Generating code for CastNode");
+  llvm::Value *operandValue = generate(cast->operand.get());
   if (operandValue == nullptr) {
     logzy::error("couldnt' cast as operand couldn't be evaluated");
     return;
@@ -419,9 +420,17 @@ void CodeGenVisitor::visit(CastNode *cast) {
   using TivaType::Int;
 
   if (cast->resolvedType == Int && cast->targetType == Float) {
+    logzy::trace("Casting int to float");
     ReturnValue = state_->builder.CreateSIToFP(
         operandValue, llvm::Type::getDoubleTy(state_->context),
         "int_float_cast");
+    return;
+  }
+
+  if (cast->resolvedType == Float && cast->targetType == Int) {
+    logzy::trace("Casting float to int");
+    ReturnValue = state_->builder.CreateFPToSI(
+        operandValue, llvm::Type::getInt32Ty(state_->context));
     return;
   }
 

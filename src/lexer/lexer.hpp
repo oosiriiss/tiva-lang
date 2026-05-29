@@ -15,7 +15,7 @@ struct Lexer {
   [[nodiscard]] static auto parseKeyword(
       std::string_view identifierString) noexcept -> std::optional<Token>;
   [[nodiscard]] auto readNumber() noexcept -> std::optional<std::string_view>;
-  [[nodiscard]] auto readSymbol() noexcept -> std::optional<TokenType>;
+  [[nodiscard]] auto readSymbol() noexcept -> std::optional<Token>;
   [[nodiscard]] auto parseBlock() noexcept -> std::optional<Token>;
   void skipWhitespace() noexcept;
 
@@ -24,4 +24,3 @@ struct Lexer {
  private:
   std::string_view source_;
 };
-

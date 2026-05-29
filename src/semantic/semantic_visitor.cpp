@@ -141,6 +141,17 @@ void SemanticAnalysisVisitor::visit(Function *func) {
   beginScope();
   dispatch(func->prototype.get());
   dispatch(func->body.get());
+
+  if (func->prototype->returnType != TivaType::Unknown &&
+      func->body->resolvedType != func->prototype->returnType) {
+    logzy::trace("Casting functin return type expected:{} and (inferred:{}",
+                 func->prototype->returnType, func->body->resolvedType);
+    cast(func->body, func->prototype->returnType);
+  }
+
+  logzy::trace("Function's return type: '{}'", func->body->resolvedType);
+  func->prototype->returnType = func->body->resolvedType;
+
   endScope();
 }
 

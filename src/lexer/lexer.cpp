@@ -3,6 +3,7 @@
 #include <logzy/logzy.hpp>
 #include <utility>
 
+#include "lexer/token.hpp"
 #include "utility.hpp"
 
 using util::isDigit;
@@ -37,10 +38,9 @@ auto Lexer::nextToken() -> Token {
   }
 
   if (auto symbolToken = readSymbol()) {
-    auto symbolChar = source_.substr(0, 1);
-    source_.remove_prefix(1);
+    source_.remove_prefix(symbolToken->value.size());
     logzy::debug("Token is a symbol '{}'", *symbolToken);
-    return Token{.value = symbolChar, .type = *symbolToken};
+    return *symbolToken;
   }
 
   if (auto numberToken = readNumber()) {
@@ -136,40 +136,76 @@ namespace {
                                          length};
 }
 
-[[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<TokenType> {
+[[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<Token> {
   if (source_.size() <= 0) {
     return std::nullopt;
   }
 
   char character = source_[0];
 
+  size_t symbolChars = 1;
+
+  auto match = [&](char character) -> bool {
+    if (source_.size() <= symbolChars) {
+      return false;
+    }
+    bool isMatch = (source_[symbolChars] == character);
+
+    if (isMatch) {
+      ++symbolChars;
+    }
+    return isMatch;
+  };
+
+  auto type = TokenType::Unknown;
+
   switch (character) {
     case '+':
-      return TokenType::Plus;
+      type = TokenType::Plus;
+      break;
     case '-':
-      return TokenType::Minus;
+      if (match('>')) {
+        type = TokenType::Arrow;
+        break;
+      }
+      type = TokenType::Minus;
+      break;
     case '*':
-      return TokenType::Multiply;
+      type = TokenType::Multiply;
+      break;
     case '/':
-      return TokenType::Divide;
+      type = TokenType::Divide;
+      break;
     case '(':
-      return TokenType::ParenBegin;
+      type = TokenType::ParenBegin;
+      break;
     case ')':
-      return TokenType::ParenEnd;
+      type = TokenType::ParenEnd;
+      break;
     case ',':
-      return TokenType::Comma;
+      type = TokenType::Comma;
+      break;
     case '{':
-      return TokenType::CurlyBegin;
+      type = TokenType::CurlyBegin;
+      break;
     case '}':
-      return TokenType::CurlyEnd;
+      type = TokenType::CurlyEnd;
+      break;
     case '=':
-      return TokenType::Assign;
+      type = TokenType::Assign;
+      break;
     case ':':
-      return TokenType::Colon;
+      type = TokenType::Colon;
+      break;
     default:
       logzy::trace("unknown symbol '{}'", character);
       return std::nullopt;
   }
+
+  return std::optional<Token>{
+      std::in_place_t{}, std::string_view{source_.data(), symbolChars}, type
+
+  };
 }
 
 void Lexer::skipWhitespace() noexcept {

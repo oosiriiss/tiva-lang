@@ -1,4 +1,4 @@
-fn testFn(a:i32,b:float,c:i32) {
+fn testFn(a:i32,b:float,c:i32) -> i32 {
       let x = b
 
       let z = 5 + a

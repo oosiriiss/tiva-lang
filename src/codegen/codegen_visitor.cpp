@@ -423,8 +423,9 @@ void CodeGenVisitor::visit(FunctionPrototype *proto) {
 
   logzy::trace("Creating the function");
 
-  llvm::FunctionType *funcType = llvm::FunctionType::get(
-      llvm::Type::getInt32Ty(state_->context), paramTypes, false);
+  llvm::Type *returnType = toLlvm(state_->context, proto->returnType);
+  llvm::FunctionType *funcType =
+      llvm::FunctionType::get(returnType, paramTypes, false);
   func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage,
                                 proto->name, *state_->module);
 

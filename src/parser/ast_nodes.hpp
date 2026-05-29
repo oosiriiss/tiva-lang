@@ -169,15 +169,18 @@ struct Parameter {
 struct FunctionPrototype : public AstNode {
  public:
   constexpr FunctionPrototype(std::string_view name,
-                              std::vector<Parameter> &&params)
+                              std::vector<Parameter> &&params,
+                              TivaType returnType)
       : name{name},
-        params{std::move(params)} {}
+        params{std::move(params)},
+        returnType{returnType} {}
 
   void accept(AstNodeVisitor *visitor) override;
 
  public:
   std::string name;
   std::vector<Parameter> params;
+  TivaType returnType;
 };
 
 struct Function : public AstNode {

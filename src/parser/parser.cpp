@@ -177,7 +177,18 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   expectToken(TokenType::ParenEnd);
   nextToken();
 
-  return std::make_unique<FunctionPrototype>(functionName, std::move(params));
+  TivaType returnType = TivaType::Unknown;
+
+  // Optional return type
+  if (currentToken_.type == TokenType::Arrow) {
+    nextToken();
+    expectToken(TokenType::Identifier);
+    returnType = fromString(currentToken_.value);
+    nextToken();
+  }
+
+  return std::make_unique<FunctionPrototype>(functionName, std::move(params),
+                                             returnType);
 }
 [[nodiscard]] auto Parser::parseFunction() -> std::unique_ptr<Function> {
   expectToken(TokenType::Function);

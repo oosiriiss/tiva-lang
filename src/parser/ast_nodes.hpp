@@ -85,12 +85,12 @@ struct BinaryExprAstNode : public AstNode {
 };
 
 struct BlockAstNode : public AstNode {
-  std::string blockName;
+  std::string name;
   std::vector<std::unique_ptr<AstNode>> expressions;
 
   constexpr BlockAstNode(std::string_view name,
                          std::vector<std::unique_ptr<AstNode>> &&expressions)
-      : blockName{name},
+      : name{name},
         expressions{std::move(expressions)} {}
   void accept(AstNodeVisitor *) override;
 };

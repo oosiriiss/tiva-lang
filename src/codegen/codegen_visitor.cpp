@@ -389,7 +389,7 @@ void CodeGenVisitor::visit(LetAstNode *let) {
   }
 
   logzy::trace("variable '{}'s resolved type is: {}", let->varName,
-               std::to_underlying(rhs->resolvedType));
+               rhs->resolvedType);
   llvm::AllocaInst *alloc = allocateInEntryBlock(
       state->builder.GetInsertBlock()->getParent(), varName, rhs->resolvedType);
 
@@ -424,9 +424,8 @@ void CodeGenVisitor::visit(CastNode *cast) {
     return;
   }
 
-  logzy::error("Invalid conversion from int({}) to int({})",
-               std::to_underlying(cast->resolvedType),
-               std::to_underlying(cast->targetType));
+  logzy::error("Invalid conversion from int({}) to int({})", cast->resolvedType,
+               cast->targetType);
 }
 void CodeGenVisitor::visit(Function *function) {
   std::unique_ptr<FunctionPrototype> &prototype = function->prototype;

@@ -9,7 +9,6 @@
 #include "debug.hpp"
 #include "lexer.hpp"
 #include "logzy/logzy.hpp"
-#include "semantic/types.hpp"
 #include "utility.hpp"
 
 static std::unordered_map<TokenType, int> precedences{
@@ -46,10 +45,10 @@ static constexpr auto getPrecedence(TokenType type) -> int {
   }
 }
 
-#define ASSERT_TOKEN_TYPE(tokenType)                            \
-  DEBUG_ASSERT(currentToken_.type == tokenType,                 \
-               std::format("Expected token type {} and got {}", \
-                           std::to_underlying(tokenType), currentToken_));
+#define ASSERT_TOKEN_TYPE(tokenType)                                       \
+  DEBUG_ASSERT(currentToken_.type == tokenType,                            \
+               std::format("Expected token type {} and got {}", tokenType, \
+                           currentToken_));
 #define ASSERT_NUMBER_TOKEN ASSERT_TOKEN_TYPE(TokenType::Number);
 #define ASSERT_IDENTIFIER_TOKEN ASSERT_TOKEN_TYPE(TokenType::Identifier);
 #define ASSERT_TOKEN_VALUE(tokenValue)                            \

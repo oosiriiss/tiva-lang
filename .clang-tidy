@@ -2,21 +2,20 @@
 # Enable ALL the things! Except not really
 # misc-non-private-member-variables-in-classes: the options don't do anything
 # modernize-use-nodiscard: too aggressive, attribute is situationally useful
-Checks: "*,\
-  -google-readability-todo,\
-  -altera-*,\
-  -fuchsia-*,\
-  fuchsia-multiple-inheritance,\
-  -llvm-header-guard,\
-  -llvm-include-order,\
-  -llvmlibc-*,\
+Checks: "bugprone-*,\
+  performance-*,\
+  modernize-*,\
+  readability-*,\
+  cppcoreguidelines-*,\
+  misc-*,\
+  -misc-no-recursion,\
   -modernize-use-nodiscard,\
-  -modernize-return-braced-init-list, \
+  -modernize-return-braced-init-list,\
   -bugprone-easily-swappable-parameters,\
+  -readability-function-cognitive-complexity,\
   -readability-redundant-access-specifiers,\
   -cppcoreguidelines-non-private-member-variables-in-classes, \
-  -misc-non-private-member-variables-in-classes, \
-  -misc-use-anonymous-namespace"
+  -misc-non-private-member-variables-in-classes"
 WarningsAsErrors: ''
 CheckOptions:
   - key: 'bugprone-argument-comment.StrictMode'
@@ -73,6 +72,8 @@ CheckOptions:
     value: 'camelBack'
   - key: 'readability-identifier-naming.ConstexprVariableCase'
     value: 'camelBack'
+  - key: 'readability-identifier-naming.GlobalConstexprVariableCase'
+    value: 'UPPER_CASE'
   - key: 'readability-identifier-naming.EnumCase'
     value: 'CamelCase'
   - key: 'readability-identifier-naming.EnumConstantCase'

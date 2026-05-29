@@ -1,7 +1,5 @@
 #include "module.hpp"
 
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/Analysis/CGSCCPassManager.h>
@@ -33,44 +31,46 @@
 #include <llvm/Transforms/Scalar/Reassociate.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/Transforms/Utils/Mem2Reg.h>
+
 #include <logzy/logzy.hpp>
 
-struct CompilerState::OptimizeState {
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 
-  llvm::ModuleAnalysisManager moduleAnalysisManager{};
-  llvm::CGSCCAnalysisManager callGraphAnalysisManager{};
-  llvm::LoopAnalysisManager loopAnalysisManager{};
+struct CompilerState::OptimizeState {
+  llvm::ModuleAnalysisManager moduleAnalysisManager;
+  llvm::CGSCCAnalysisManager callGraphAnalysisManager;
+  llvm::LoopAnalysisManager loopAnalysisManager;
 
   // TODO :: Currently functions are optimized right after definitions. They
   // could be optimized when the code generationm for the module is finished
-  llvm::FunctionAnalysisManager functionAnalysisManager{};
-  llvm::FunctionPassManager functionPassManager{};
+  llvm::FunctionAnalysisManager functionAnalysisManager;
+  llvm::FunctionPassManager functionPassManager;
 
-  llvm::PassInstrumentationCallbacks passInstrumentationCallbacks{};
+  llvm::PassInstrumentationCallbacks passInstrumentationCallbacks;
   llvm::StandardInstrumentations passInstrumentation;
 
   OptimizeState(llvm::LLVMContext &context)
       : passInstrumentation(context, true) {
-
     passInstrumentation.registerCallbacks(passInstrumentationCallbacks);
 
     functionPassManager.addPass(
-        llvm::PromotePass()); // mem2reg: promote allocas to registers
+        llvm::PromotePass());  // mem2reg: promote allocas to registers
     functionPassManager.addPass(
-        llvm::InstCombinePass()); // reduces instruction count
+        llvm::InstCombinePass());  // reduces instruction count
     functionPassManager.addPass(
-        llvm::ReassociatePass()); // rearranges expression trees so that they
-                                  // can be more efficiently grouped together
-                                  // i.e. before: "4 + (x + 5)" after: "x +
-                                  // (4+5) -> x
-                                  // + 9"
+        llvm::ReassociatePass());  // rearranges expression trees so that they
+                                   // can be more efficiently grouped together
+                                   // i.e. before: "4 + (x + 5)" after: "x +
+                                   // (4+5) -> x
+                                   // + 9"
     functionPassManager.addPass(
-        llvm::GVNPass()); // checks if we are recalculating the same expression,
-                          // if yes makes the result be reused
+        llvm::GVNPass());  // checks if we are recalculating the same
+                           // expression, if yes makes the result be reused
     functionPassManager.addPass(
-        llvm::SimplifyCFGPass()); // remove dead code, merge blocks that dont
-                                  // need to be separated, simplifies control
-                                  // flow graph
+        llvm::SimplifyCFGPass());  // remove dead code, merge blocks that dont
+                                   // need to be separated, simplifies control
+                                   // flow graph
 
     llvm::PassBuilder passBuilder;
     passBuilder.registerModuleAnalyses(moduleAnalysisManager);
@@ -82,17 +82,17 @@ struct CompilerState::OptimizeState {
 };
 
 CompilerState::CompilerState()
-    : context{}, builder{context},
+    : context{},
+      builder{context},
       module{std::make_unique<llvm::Module>("Main module", context)},
       optimizeState{std::make_unique<OptimizeState>(context)} {}
 
 CompilerState::~CompilerState() = default;
 
-void CompilerState::printIr() { module->print(llvm::errs(), nullptr); }
+void CompilerState::printIr() const { module->print(llvm::errs(), nullptr); }
 
-void CompilerState::runOptimizations() {
+void CompilerState::runOptimizations() const {
   for (llvm::Function &func : *module) {
-
     if (func.isDeclaration()) {
       continue;
     }
@@ -101,8 +101,7 @@ void CompilerState::runOptimizations() {
   }
 }
 
-void CompilerState::emitObjectFile(std::string_view fileName) {
-
+void CompilerState::emitObjectFile(std::string_view fileName) const {
   auto targetTriple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
 
   logzy::info("Emmiting object code for target '{}' to file: '{}'",
@@ -113,7 +112,7 @@ void CompilerState::emitObjectFile(std::string_view fileName) {
   llvm::InitializeNativeTargetAsmPrinter();
 
   std::string err;
-  auto target = llvm::TargetRegistry::lookupTarget(targetTriple, err);
+  const auto *target = llvm::TargetRegistry::lookupTarget(targetTriple, err);
 
   if (target == nullptr) {
     logzy::error("Couldn't lookup target. {}", err);
@@ -121,21 +120,21 @@ void CompilerState::emitObjectFile(std::string_view fileName) {
   }
 
   std::string_view cpu = "generic";
-  std::string_view features = "";
+  std::string_view features;
   llvm::TargetOptions opts;
 
-  auto targetMachine = target->createTargetMachine(targetTriple, cpu, features,
-                                                   opts, llvm::Reloc::PIC_);
+  auto *targetMachine = target->createTargetMachine(targetTriple, cpu, features,
+                                                    opts, llvm::Reloc::PIC_);
 
   module->setDataLayout(targetMachine->createDataLayout());
   module->setTargetTriple(targetTriple);
 
-  std::error_code ec;
+  std::error_code error;
 
-  llvm::raw_fd_ostream destination(fileName, ec, llvm::sys::fs::OF_None);
-  if (ec) {
+  llvm::raw_fd_ostream destination(fileName, error, llvm::sys::fs::OF_None);
+  if (error) {
     logzy::error("Couldn't open file '{}' for writing. {}", fileName,
-                 ec.message());
+                 error.message());
     return;
   }
 

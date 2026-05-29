@@ -5,19 +5,22 @@
 #include "llvm/IR/Module.h"
 
 struct CompilerState {
-
-public:
-  void printIr();
-  void runOptimizations();
-  void emitObjectFile(std::string_view fileName);
-
-private:
-  struct OptimizeState;
-
-public:
+ public:
   CompilerState();
+  CompilerState(const CompilerState&) = delete;
+  CompilerState(CompilerState&&) = delete;
+  auto operator=(const CompilerState&) -> CompilerState& = delete;
+  auto operator=(CompilerState&&) -> CompilerState& = delete;
   ~CompilerState();
 
+  void printIr() const;
+  void runOptimizations() const;
+  void emitObjectFile(std::string_view fileName) const;
+
+ private:
+  struct OptimizeState;
+
+ public:
   llvm::LLVMContext context;
   llvm::IRBuilder<> builder;
   std::unique_ptr<llvm::Module> module;

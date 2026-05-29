@@ -35,7 +35,6 @@
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 
 #include <logzy/logzy.hpp>
-#include <utility>
 
 #include "codegen/module.hpp"
 #include "llvm/IR/IRBuilder.h"
@@ -60,8 +59,8 @@
 
 void CodeGenVisitor::printScope(std::string_view message) {
   llvm::errs() << message << '\n';
-  for (auto &[k, v] : scopeValues.back()) {
-    llvm::errs() << "(" << k << "," << v << ")\n";
+  for (auto &[key, val] : scopeValues_.back()) {
+    llvm::errs() << "(" << key << "," << val << ")\n";
   }
 }
 
@@ -72,10 +71,10 @@ auto CodeGenVisitor::allocateInEntryBlock(llvm::Function *func,
 
   switch (type) {
     case TivaType::Int:
-      llvmType = llvm::Type::getInt32Ty(state->context);
+      llvmType = llvm::Type::getInt32Ty(state_->context);
       break;
     case TivaType::Float:
-      llvmType = llvm::Type::getDoubleTy(state->context);
+      llvmType = llvm::Type::getDoubleTy(state_->context);
       break;
     case TivaType::Unknown:
       logzy::error("Unknowntype encountered. couldn't allocate variable '{}'",
@@ -89,21 +88,20 @@ auto CodeGenVisitor::allocateInEntryBlock(llvm::Function *func,
   return entryBuilder.CreateAlloca(llvmType, nullptr, variableName);
 }
 
-void CodeGenVisitor::visit(IntegerAstNode *number) {
-  logzy::trace("generating code for number '{}'", number->val);
-  ReturnValue = llvm::ConstantInt::get(state->context,
-                                       llvm::APInt(32, number->val, true));
+void CodeGenVisitor::visit(IntegerAstNode *integer) {
+  logzy::trace("generating code for number '{}'", integer->val);
+  ReturnValue = llvm::ConstantInt::get(
+      state_->context, llvm::APInt(typing::INT_BITS, integer->val, true));
 }
 
-void CodeGenVisitor::visit(FloatAstNode *number) {
-  logzy::trace("generating code for number '{}'", number->val);
-  ReturnValue =
-      llvm::ConstantFP::get(state->context, llvm::APFloat(number->val));
+void CodeGenVisitor::visit(FloatAstNode *flt) {
+  logzy::trace("generating code for number '{}'", flt->val);
+  ReturnValue = llvm::ConstantFP::get(state_->context, llvm::APFloat(flt->val));
 }
 
-void CodeGenVisitor::visit(VariableAstNode *variable) {
-  logzy::trace("generating code for variable '{}' (r-value)", variable->name);
-  auto val = currentScope().find(variable->name);
+void CodeGenVisitor::visit(VariableAstNode *var) {
+  logzy::trace("generating code for variable '{}' (r-value)", var->name);
+  auto val = currentScope().find(var->name);
   if (val == currentScope().end()) {
     logzy::warn("variable not found in this scope");
     ReturnValue = nullptr;
@@ -111,16 +109,14 @@ void CodeGenVisitor::visit(VariableAstNode *variable) {
   }
 
   // Generates a value (R-value)
-  ReturnValue = state->builder.CreateLoad(val->second->getAllocatedType(),
-                                          val->second, val->first.c_str());
+  ReturnValue = state_->builder.CreateLoad(val->second->getAllocatedType(),
+                                           val->second, val->first.c_str());
 }
 void CodeGenVisitor::visit(AssignmentAstNode *assignment) {
-  logzy::trace("Generating code for assignemnt of var: '{}'",
-               assignment->var->name);
+  auto *var = dynamic_cast<VariableAstNode *>(assignment->lhs.get());
+  logzy::trace("Generating code for assignemnt of var: '{}'", var->name);
 
-  auto *varNode = assignment->var.get();
-
-  auto varIter = currentScope().find(varNode->name);
+  auto varIter = currentScope().find(var->name);
   if (varIter == currentScope().end()) {
     logzy::warn("variable not found in this scope");
     ReturnValue = nullptr;
@@ -128,7 +124,7 @@ void CodeGenVisitor::visit(AssignmentAstNode *assignment) {
   }
 
   llvm::AllocaInst *lhs = varIter->second;
-  auto rhsValue = generate(assignment->rhs);
+  auto *rhsValue = generate(assignment->rhs);
 
   if (rhsValue == nullptr) {
     logzy::error("Couldn't generate code for assginemnt rhs");
@@ -136,7 +132,7 @@ void CodeGenVisitor::visit(AssignmentAstNode *assignment) {
     return;
   }
 
-  state->builder.CreateStore(rhsValue, lhs);
+  state_->builder.CreateStore(rhsValue, lhs);
 
   ReturnValue = rhsValue;
 }
@@ -147,7 +143,7 @@ void CodeGenVisitor::visit(CallAstNode *call) {
   logzy::trace("generating code for call to '{}' with args.count()={}", toCall,
                args.size());
 
-  llvm::Function *functionToCall = state->module->getFunction(toCall);
+  llvm::Function *functionToCall = state_->module->getFunction(toCall);
   if (functionToCall == nullptr) {
     logzy::error("Trying to call undefined function '{}'", toCall);
     ReturnValue = nullptr;
@@ -173,14 +169,15 @@ void CodeGenVisitor::visit(CallAstNode *call) {
     argValues.emplace_back(argValue);
   }
 
-  ReturnValue = state->builder.CreateCall(functionToCall, argValues, "calltmp");
+  ReturnValue =
+      state_->builder.CreateCall(functionToCall, argValues, "calltmp");
 }
-void CodeGenVisitor::visit(BinaryExprAstNode *binaryExpr) {
-  std::unique_ptr<AstNode> &lhs = binaryExpr->lhs;
-  std::unique_ptr<AstNode> &rhs = binaryExpr->rhs;
-  TokenType op = binaryExpr->op;
+void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
+  std::unique_ptr<AstNode> &lhs = binExpr->lhs;
+  std::unique_ptr<AstNode> &rhs = binExpr->rhs;
+  TokenType oper = binExpr->op;
 
-  logzy::trace("generating code for binary expression with operator'{}'", op);
+  logzy::trace("generating code for binary expression with operator'{}'", oper);
 
   // Special case for assginemnts
 
@@ -198,50 +195,50 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binaryExpr) {
 
   if (leftTy->isDoubleTy() && rightTy->isIntegerTy()) {
     logzy::trace("Upcasting right operand to float");
-    right = state->builder.CreateSIToFP(right, leftTy, "upcast_tmp");
+    right = state_->builder.CreateSIToFP(right, leftTy, "upcast_tmp");
 
   } else if (leftTy->isIntegerTy() && rightTy->isDoubleTy()) {
     logzy::trace("Upcasting left operand to float");
-    left = state->builder.CreateSIToFP(left, rightTy, "upcast_tmp");
+    left = state_->builder.CreateSIToFP(left, rightTy, "upcast_tmp");
   }
 
   bool isFloat = (leftTy->isDoubleTy() || rightTy->isDoubleTy());
 
   if (isFloat) {
-    switch (op) {
+    switch (oper) {
       case TokenType::Plus:
-        ReturnValue = state->builder.CreateFAdd(left, right, "addftmp");
+        ReturnValue = state_->builder.CreateFAdd(left, right, "addftmp");
         break;
       case TokenType::Minus:
-        ReturnValue = state->builder.CreateFSub(left, right, "subftmp");
+        ReturnValue = state_->builder.CreateFSub(left, right, "subftmp");
         break;
       case TokenType::Divide:
-        ReturnValue = state->builder.CreateFDiv(left, right, "divftmp");
+        ReturnValue = state_->builder.CreateFDiv(left, right, "divftmp");
         break;
       case TokenType::Multiply:
-        ReturnValue = state->builder.CreateFMul(left, right, "mulftmp");
+        ReturnValue = state_->builder.CreateFMul(left, right, "mulftmp");
         break;
       default:
-        logzy::error("invalid operator '{}'", op);
+        logzy::error("invalid operator '{}'", oper);
         ReturnValue = nullptr;
         break;
     }
   } else {
-    switch (op) {
+    switch (oper) {
       case TokenType::Plus:
-        ReturnValue = state->builder.CreateAdd(left, right, "addtmp");
+        ReturnValue = state_->builder.CreateAdd(left, right, "addtmp");
         break;
       case TokenType::Minus:
-        ReturnValue = state->builder.CreateSub(left, right, "subtmp");
+        ReturnValue = state_->builder.CreateSub(left, right, "subtmp");
         break;
       case TokenType::Divide:
-        ReturnValue = state->builder.CreateSDiv(left, right, "divtmp");
+        ReturnValue = state_->builder.CreateSDiv(left, right, "divtmp");
         break;
       case TokenType::Multiply:
-        ReturnValue = state->builder.CreateMul(left, right, "multmp");
+        ReturnValue = state_->builder.CreateMul(left, right, "multmp");
         break;
       default:
-        logzy::error("invalid operator '{}'", op);
+        logzy::error("invalid operator '{}'", oper);
         ReturnValue = nullptr;
         break;
     }
@@ -288,20 +285,21 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
     return;
   }
 
-  conditonValue = state->builder.CreateICmpNE(
+  conditonValue = state_->builder.CreateICmpNE(
       conditonValue,
-      llvm::ConstantInt::get(state->context, llvm::APInt(32, 0, true)));
+      llvm::ConstantInt::get(state_->context,
+                             llvm::APInt(typing::INT_BITS, 0, true)));
 
-  llvm::Function *parentFunc = state->builder.GetInsertBlock()->getParent();
+  llvm::Function *parentFunc = state_->builder.GetInsertBlock()->getParent();
 
   llvm::BasicBlock *ifBlock =
-      llvm::BasicBlock::Create(state->context, "if", parentFunc);
+      llvm::BasicBlock::Create(state_->context, "if", parentFunc);
 
   llvm::BasicBlock *elseBlock = llvm::BasicBlock::Create(
-      state->context, "else");  // Not yet inserted to the function
+      state_->context, "else");  // Not yet inserted to the function
 
   llvm::BasicBlock *mergeBlock = llvm::BasicBlock::Create(
-      state->context, "ifMerge");  // Not yet inserted to the function
+      state_->context, "ifMerge");  // Not yet inserted to the function
 
   // TODO :: instead fo generatingthe phi node and branches, a simple seleect
   // instruciton looks simpler. But it looks like the llvm automatically does
@@ -311,9 +309,9 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
   //  %2 = select i1 %1, i32 %a, i32 %b
   //  ret i32 %2
 
-  state->builder.CreateCondBr(conditonValue, ifBlock, elseBlock);
+  state_->builder.CreateCondBr(conditonValue, ifBlock, elseBlock);
 
-  state->builder.SetInsertPoint(ifBlock);
+  state_->builder.SetInsertPoint(ifBlock);
   //
   auto *ifBodyValue = generate(ifBody);
   if (ifBodyValue == nullptr) {
@@ -321,13 +319,13 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
     ReturnValue = nullptr;
     return;
   }
-  state->builder.CreateBr(mergeBlock);  // Branches' "return" block
+  state_->builder.CreateBr(mergeBlock);  // Branches' "return" block
 
   // codegen for body may change the block, restoringi t
-  state->builder.SetInsertPoint(ifBlock);
+  state_->builder.SetInsertPoint(ifBlock);
 
   parentFunc->insert(parentFunc->end(), elseBlock);
-  state->builder.SetInsertPoint(elseBlock);
+  state_->builder.SetInsertPoint(elseBlock);
   //
   auto *elseBodyValue = generate(elseBody);
   if (elseBodyValue == nullptr) {
@@ -335,17 +333,17 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
     ReturnValue = nullptr;
     return;
   }
-  state->builder.CreateBr(mergeBlock);  // Branches' "return" block
+  state_->builder.CreateBr(mergeBlock);  // Branches' "return" block
 
   // codegen for body may change the block, restoringi t
-  state->builder.SetInsertPoint(elseBlock);
+  state_->builder.SetInsertPoint(elseBlock);
 
   // Merge block
   parentFunc->insert(parentFunc->end(), mergeBlock);
-  state->builder.SetInsertPoint(mergeBlock);
+  state_->builder.SetInsertPoint(mergeBlock);
 
-  llvm::PHINode *phi = state->builder.CreatePHI(
-      llvm::Type::getInt32Ty(state->context), 2, "ifResult");
+  llvm::PHINode *phi = state_->builder.CreatePHI(
+      llvm::Type::getInt32Ty(state_->context), 2, "ifResult");
 
   phi->addIncoming(ifBodyValue, ifBlock);
   phi->addIncoming(elseBodyValue, elseBlock);
@@ -353,26 +351,28 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
   ReturnValue = phi;
 }
 
-static auto createFunction(FunctionPrototype *proto, CompilerState &state)
-    -> llvm::Function * {
-  std::vector<std::string> &args = proto->args;
-  // for now all args are ints
-  std::vector<llvm::Type *> argTypes(args.size(),
-                                     llvm::Type::getInt32Ty(state.context));
-  llvm::FunctionType *funcType = llvm::FunctionType::get(
-      llvm::Type::getInt32Ty(state.context), argTypes, false);
-  llvm::Function *func = llvm::Function::Create(
-      funcType, llvm::Function::ExternalLinkage, proto->name, *state.module);
+namespace {
+  auto createFunction(FunctionPrototype *proto, CompilerState &state)
+      -> llvm::Function * {
+    std::vector<std::string> &args = proto->args;
+    // for now all args are ints
+    std::vector<llvm::Type *> argTypes(args.size(),
+                                       llvm::Type::getInt32Ty(state.context));
+    llvm::FunctionType *funcType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(state.context), argTypes, false);
+    llvm::Function *func = llvm::Function::Create(
+        funcType, llvm::Function::ExternalLinkage, proto->name, *state.module);
 
-  size_t idx = 0;
-  for (auto &arg : func->args()) {
-    DEBUG_ASSERT(idx < args.size(),
-                 std::format("idx={} args={}", idx, args.size()));
-    arg.setName(args[idx++]);
+    size_t idx = 0;
+    for (auto &arg : func->args()) {
+      DEBUG_ASSERT(idx < args.size(),
+                   std::format("idx={} args={}", idx, args.size()));
+      arg.setName(args[idx++]);
+    }
+
+    return func;
   }
-
-  return func;
-}
+}  // namespace
 
 void CodeGenVisitor::visit(LetAstNode *let) {
   logzy::trace("Generting code for let '{}' = <expr>", let->varName);
@@ -390,8 +390,9 @@ void CodeGenVisitor::visit(LetAstNode *let) {
 
   logzy::trace("variable '{}'s resolved type is: {}", let->varName,
                rhs->resolvedType);
-  llvm::AllocaInst *alloc = allocateInEntryBlock(
-      state->builder.GetInsertBlock()->getParent(), varName, rhs->resolvedType);
+  llvm::AllocaInst *alloc =
+      allocateInEntryBlock(state_->builder.GetInsertBlock()->getParent(),
+                           varName, rhs->resolvedType);
 
   currentScope()[std::string(varName)] = alloc;
 
@@ -402,7 +403,7 @@ void CodeGenVisitor::visit(LetAstNode *let) {
     return;
   }
 
-  state->builder.CreateStore(rhsValue, alloc);
+  state_->builder.CreateStore(rhsValue, alloc);
 
   ReturnValue = rhsValue;
 }
@@ -418,8 +419,8 @@ void CodeGenVisitor::visit(CastNode *cast) {
   using TivaType::Int;
 
   if (cast->resolvedType == Int && cast->targetType == Float) {
-    ReturnValue = state->builder.CreateSIToFP(
-        operandValue, llvm::Type::getDoubleTy(state->context),
+    ReturnValue = state_->builder.CreateSIToFP(
+        operandValue, llvm::Type::getDoubleTy(state_->context),
         "int_float_cast");
     return;
   }
@@ -427,62 +428,56 @@ void CodeGenVisitor::visit(CastNode *cast) {
   logzy::error("Invalid conversion from int({}) to int({})", cast->resolvedType,
                cast->targetType);
 }
-void CodeGenVisitor::visit(Function *function) {
-  std::unique_ptr<FunctionPrototype> &prototype = function->prototype;
+void CodeGenVisitor::visit(Function *func) {
+  std::unique_ptr<FunctionPrototype> &prototype = func->prototype;
 
   // Checking if function was previously declared.
   logzy::debug("Generating code for function '{}'", prototype->name);
-  llvm::Function *func = state->module->getFunction(prototype->name);
-  if (func == nullptr) {
+  llvm::Function *llvmFunc = state_->module->getFunction(prototype->name);
+  if (llvmFunc == nullptr) {
     logzy::debug("Generating code for function '{}' prototype",
                  prototype->name);
-    func = createFunction(prototype.get(), *state);
+    llvmFunc = createFunction(prototype.get(), *state_);
   }
 
-  if (func == nullptr) {
+  if (llvmFunc == nullptr) {
     logzy::error("Couldn't create function '{}'", prototype->name);
     ReturnValue = nullptr;
     return;
   }
 
-  if (!func->empty()) {
+  if (!llvmFunc->empty()) {
     logzy::error("Function '{}' redefined", prototype->name);
     ReturnValue = nullptr;
     return;
   }
 
   llvm::BasicBlock *block =
-      llvm::BasicBlock::Create(state->context, "entry", func);
-  state->builder.SetInsertPoint(block);
+      llvm::BasicBlock::Create(state_->context, "entry", llvmFunc);
+  state_->builder.SetInsertPoint(block);
 
-  // currentScope->clear();
-
-  beginScope();  // ??? double scopes for function and body
+  beginScope();
   size_t currentArgIndex = 0;
-  for (auto &arg : func->args()) {
-    auto *allocated = allocateInEntryBlock(
-        func, arg.getName(),
-        TivaType::Int);  // For now all function parameters are ints
-    state->builder.CreateStore(&arg, allocated);
+  for (auto &arg : llvmFunc->args()) {
+    auto *allocated =
+        allocateInEntryBlock(llvmFunc, arg.getName(), TivaType::Int);
+    state_->builder.CreateStore(&arg, allocated);
     currentScope()[std::string(arg.getName())] = allocated;
   }
 
   logzy::debug("Generating code for function '{}' body", prototype->name);
-  auto *returnValue = generate(function->body);
+  auto *returnValue = generate(func->body);
   endScope();
 
   if (returnValue == nullptr) {
     logzy::error("Function didn't return value");
-    func->eraseFromParent();
+    llvmFunc->eraseFromParent();
     ReturnValue = nullptr;
     return;
   }
 
-  state->builder.CreateRet(returnValue);
+  state_->builder.CreateRet(returnValue);
 
-  llvm::verifyFunction(*func);
-
-  // llvmFunctionPassManager->run(*func, *llvmFunctionAnalysisManager);
-
-  ReturnValue = func;
+  llvm::verifyFunction(*llvmFunc);
+  ReturnValue = llvmFunc;
 }

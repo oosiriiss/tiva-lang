@@ -1,7 +1,6 @@
 #include "lexer.hpp"
 
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 
 #include "logzy/logzy.hpp"
@@ -11,9 +10,7 @@ using util::isDigit;
 using util::isLetter;
 using util::isWhitespace;
 
-enum class State {
-  Start,
-};
+constexpr size_t SOURCE_FORESEE_LENGTH = 16;
 
 Lexer::Lexer(std::string_view source) noexcept
     : source_{source} {}
@@ -22,7 +19,7 @@ auto Lexer::nextToken() -> Token {
   logzy::debug("Trying to parse next token");
   logzy::trace("Skipping whitespace");
   skipWhitespace();
-  logzy::trace("source[0..16]='{}'", source_.substr(0, 16));
+  logzy::trace("source[0..16]='{}'", source_.substr(0, SOURCE_FORESEE_LENGTH));
 
   if (auto tokenStringValue = readIdentifier()) {
     source_.remove_prefix(tokenStringValue->length());
@@ -41,10 +38,10 @@ auto Lexer::nextToken() -> Token {
   }
 
   if (auto symbolToken = readSymbol()) {
-    auto c = source_.substr(0, 1);
+    auto symbolChar = source_.substr(0, 1);
     source_.remove_prefix(1);
     logzy::debug("Token is a symbol '{}'", *symbolToken);
-    return Token{.value = c, .type = *symbolToken};
+    return Token{.value = symbolChar, .type = *symbolToken};
   }
 
   if (auto numberToken = readNumber()) {
@@ -54,47 +51,41 @@ auto Lexer::nextToken() -> Token {
                  .type = TokenType::Number};
   }
 
-  logzy::warn("Couldn't parse '{}' as a token.", source_.substr(0, 16));
-  return Token{.value = source_.substr(0, 16), .type = TokenType::Unknown};
+  logzy::warn("Couldn't parse '{}' as a token.",
+              source_.substr(0, SOURCE_FORESEE_LENGTH));
+  return Token{.value = source_.substr(0, SOURCE_FORESEE_LENGTH),
+               .type = TokenType::Unknown};
 }
 
 [[nodiscard]] auto Lexer::parseKeyword(
     std::string_view identifierString) noexcept -> std::optional<Token> {
-  static std::unordered_map<std::string_view, TokenType> keywords{
-      {
-          "fn",
-          TokenType::Function,
-      },
-      {
-          "if",
-          TokenType::If,
-      },
-      {
-          "else",
-          TokenType::Else,
-      },
-      {
-          "let",
-          TokenType::Let,
-      }};
+  TokenType type = TokenType::Unknown;
 
-  auto iter = keywords.find(identifierString);
-  if (iter == keywords.end()) {
+  if (identifierString == "fn") {
+    type = TokenType::Function;
+  } else if (identifierString == "if") {
+    type = TokenType::If;
+  } else if (identifierString == "else") {
+    type = TokenType::Else;
+  } else if (identifierString == "let") {
+    type = TokenType::Let;
+  } else {
     logzy::trace("unknown keyword '{}'", identifierString);
     return std::nullopt;
   }
-
-  return std::optional<Token>{std::in_place_t{}, identifierString,
-                              iter->second};
+  return std::optional<Token>{std::in_place_t{}, identifierString, type};
 }
 
-[[nodiscard]] static constexpr auto validIdentifierChar(char c) -> bool {
-  return isLetter(c) || isDigit(c) || c == '_';
-}
+namespace {
+  [[nodiscard]] constexpr auto validIdentifierChar(char character) -> bool {
+    return isLetter(character) || isDigit(character) || character == '_';
+  }
 
-[[nodiscard]] static constexpr auto validIdentifierFirstChar(char c) -> bool {
-  return !isDigit(c) && validIdentifierChar(c);
-}
+  [[nodiscard]] constexpr auto validIdentifierFirstChar(char character)
+      -> bool {
+    return !isDigit(character) && validIdentifierChar(character);
+  }
+}  // namespace
 
 [[nodiscard]] auto Lexer::readIdentifier() noexcept
     -> std::optional<std::string_view> {
@@ -147,33 +138,37 @@ auto Lexer::nextToken() -> Token {
 }
 
 [[nodiscard]] auto Lexer::readSymbol() noexcept -> std::optional<TokenType> {
-  static std::unordered_map<char, TokenType> tokens{
-      {'+', TokenType::Plus},
-      {'-', TokenType::Minus},
-      {'*', TokenType::Multiply},
-      {'/', TokenType::Divide},
-      {'(', TokenType::ParenBegin},
-      {')', TokenType::ParenEnd},
-      {',', TokenType::Comma},
-      {'{', TokenType::CurlyBegin},
-      {'}', TokenType::CurlyEnd},
-      {'=', TokenType::Assign}
-
-  };
-
   if (source_.size() <= 0) {
     return std::nullopt;
   }
 
-  char c = source_[0];
+  char character = source_[0];
 
-  auto iter = tokens.find(c);
-  if (iter == tokens.end()) {
-    logzy::trace("unknown symbol '{}'", c);
-    return std::nullopt;
+  switch (character) {
+    case '+':
+      return TokenType::Plus;
+    case '-':
+      return TokenType::Minus;
+    case '*':
+      return TokenType::Multiply;
+    case '/':
+      return TokenType::Divide;
+    case '(':
+      return TokenType::ParenBegin;
+    case ')':
+      return TokenType::ParenEnd;
+    case ',':
+      return TokenType::Comma;
+    case '{':
+      return TokenType::CurlyBegin;
+    case '}':
+      return TokenType::CurlyEnd;
+    case '=':
+      return TokenType::Assign;
+    default:
+      logzy::trace("unknown symbol '{}'", character);
+      return std::nullopt;
   }
-
-  return iter->second;
 }
 
 void Lexer::skipWhitespace() noexcept {

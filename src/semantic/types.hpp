@@ -3,7 +3,11 @@
 #include <format>
 #include <string_view>
 
-enum class TivaType : int { Int, Float, Unknown };
+namespace typing {
+  constexpr auto INT_BITS = 32;
+}
+
+enum class TivaType : std::uint8_t { Int, Float, Unknown };
 
 template <>
 struct std::formatter<TivaType> : std::formatter<std::string_view> {
@@ -20,9 +24,8 @@ struct std::formatter<TivaType> : std::formatter<std::string_view> {
       TYPE_FORMAT(Float);
 
       case TivaType::Unknown:
-        throw std::invalid_argument(
-            std::format("No formatter for type TivaType.int={}",
-                        static_cast<int>(type)));
+        throw std::invalid_argument(std::format(
+            "No formatter for type TivaType.int={}", static_cast<int>(type)));
     }
 
 #undef TYPE_FORMAT

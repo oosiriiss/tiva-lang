@@ -6,7 +6,7 @@
 
 class Parser {
  public:
-  constexpr Parser(std::string_view source) noexcept
+  constexpr explicit Parser(std::string_view source) noexcept
       : lexer_{source} {
     nextToken();
   };
@@ -25,16 +25,19 @@ class Parser {
                                               std::unique_ptr<AstNode> lhs)
       -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseBlock(
-      std::optional<std::string_view> blockName = std::nullopt) 
+      std::optional<std::string_view> blockName = std::nullopt)
       -> std::unique_ptr<BlockAstNode>;
 
   [[nodiscard]] auto parseIfElse() -> std::unique_ptr<IfElseAstNode>;
   [[nodiscard]] auto parseLet() -> std::unique_ptr<LetAstNode>;
 
-  constexpr void nextToken() { currentToken_ = lexer_.nextToken(); }
+  constexpr void nextToken();
+  void expectToken(TokenType type) const;
 
  private:
   Lexer lexer_;
   // Current Token produced by the lexer.
   Token currentToken_;
 };
+
+constexpr void Parser::nextToken() { currentToken_ = lexer_.nextToken(); }

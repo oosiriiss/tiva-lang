@@ -1,6 +1,5 @@
 #pragma once
 #include <memory>
-#include <unordered_map>
 
 #include "parser/ast_nodes.hpp"
 #include "semantic/types.hpp"
@@ -16,7 +15,7 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
   void visit(BlockAstNode *block) override;
   void visit(IfElseAstNode *ifElse) override;
   void visit(LetAstNode *let) override;
-  void visit(CastNode *let) override;
+  void visit(CastNode *cast) override;
   void visit(Function *func) override;
 
  private:
@@ -30,4 +29,3 @@ constexpr void SemanticAnalysisVisitor::cast(std::unique_ptr<AstNode> &input,
                                              TivaType targetType) {
   input = std::make_unique<CastNode>(std::move(input), targetType);
 }
-

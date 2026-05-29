@@ -35,8 +35,8 @@ struct Lexer {
   [[nodiscard]] auto nextToken() -> Token;
   [[nodiscard]] auto readIdentifier() noexcept
       -> std::optional<std::string_view>;
-  [[nodiscard]] auto parseKeyword(std::string_view identifierString) noexcept
-      -> std::optional<Token>;
+  [[nodiscard]] static auto parseKeyword(
+      std::string_view identifierString) noexcept -> std::optional<Token>;
   [[nodiscard]] auto readNumber() noexcept -> std::optional<std::string_view>;
   [[nodiscard]] auto readSymbol() noexcept -> std::optional<TokenType>;
   [[nodiscard]] auto parseBlock() noexcept -> std::optional<Token>;
@@ -48,67 +48,52 @@ struct Lexer {
   std::string_view source_;
 };
 
+// 1. A reusable, compile-time stringifier
+constexpr auto toString(TokenType type) noexcept -> std::string_view {
+  switch (type) {
+    case TokenType::Identifier:
+      return "Identifier";
+    case TokenType::Number:
+      return "Number";
+    case TokenType::Plus:
+      return "Plus";
+    case TokenType::Minus:
+      return "Minus";
+    case TokenType::Divide:
+      return "Divide";
+    case TokenType::Multiply:
+      return "Multiply";
+    case TokenType::ParenBegin:
+      return "ParenBegin";
+    case TokenType::ParenEnd:
+      return "ParenEnd";
+    case TokenType::Function:
+      return "Function";
+    case TokenType::Comma:
+      return "Comma";
+    case TokenType::CurlyBegin:
+      return "CurlyBegin";
+    case TokenType::CurlyEnd:
+      return "CurlyEnd";
+    case TokenType::Assign:
+      return "Assign";
+    case TokenType::If:
+      return "If";
+    case TokenType::Else:
+      return "Else";
+    case TokenType::Let:
+      return "Let";
+    case TokenType::Unknown:
+      return "Unknown";
+    default:
+      return "SYMBOL_WITHOUT_STRING_REPRESENTATION";
+  }
+}
+
 template <>
 struct std::formatter<TokenType> : std::formatter<std::string_view> {
-  auto format(TokenType tokenString, std::format_context &ctx) const {
-    std::string_view name;
-    switch (tokenString) {
-      case TokenType::Identifier:
-        name = "Identifier";
-        break;
-      case TokenType::Number:
-        name = "Number";
-        break;
-      case TokenType::Plus:
-        name = "Plus";
-        break;
-      case TokenType::Minus:
-        name = "Minus";
-        break;
-      case TokenType::Divide:
-        name = "Divide";
-        break;
-      case TokenType::Multiply:
-        name = "Multiply";
-        break;
-      case TokenType::ParenBegin:
-        name = "ParenBegin";
-        break;
-      case TokenType::ParenEnd:
-        name = "ParenEnd";
-        break;
-      case TokenType::Function:
-        name = "Function";
-        break;
-      case TokenType::Comma:
-        name = "Comma";
-        break;
-      case TokenType::CurlyBegin:
-        name = "CurlyBegin";
-        break;
-      case TokenType::CurlyEnd:
-        name = "CurlyEnd";
-        break;
-      case TokenType::Assign:
-        name = "Assign";
-        break;
-      case TokenType::If:
-        name = "If";
-        break;
-      case TokenType::Else:
-        name = "Else";
-        break;
-      case TokenType::Let:
-        name = "Let";
-        break;
-      case TokenType::Unknown:
-        name = "Unknown";
-        break;
-      default:
-        name = "InvalidToken";
-        break;
-    }
-    return std::formatter<std::string_view>::format(name, ctx);
+  auto format(TokenType token, std::format_context &ctx) const {
+    return std::formatter<std::string_view>::format(toString(token), ctx);
   }
 };
 

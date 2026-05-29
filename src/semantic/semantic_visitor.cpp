@@ -1,7 +1,5 @@
 #include "semantic_visitor.hpp"
 
-#include <utility>
-
 #include "debug.hpp"
 #include "logzy/logzy.hpp"
 #include "parser/ast_nodes.hpp"
@@ -27,13 +25,19 @@ void SemanticAnalysisVisitor::visit(VariableAstNode *var) {
 }
 void SemanticAnalysisVisitor::visit(AssignmentAstNode *assignment) {
   logzy::trace("Semantic check of AssignmentAstNode");
-  dispatch(assignment->var.get());
+  dispatch(assignment->lhs.get());
   dispatch(assignment->rhs.get());
   assignment->resolvedType = assignment->rhs->resolvedType;
+
+  const auto *variable = dynamic_cast<VariableAstNode *>(assignment->lhs.get());
+  if (variable == nullptr) {
+    logzy::error("Left side of assignment has to a variable (lvalue)");
+    return;
+  }
+
   logzy::trace(
       "Assignment of variabe '{}' of type '{}' to expression of type '{}'",
-      assignment->var->name, assignment->var->resolvedType,
-      assignment->rhs->resolvedType);
+      variable->name, variable->resolvedType, assignment->rhs->resolvedType);
 }
 void SemanticAnalysisVisitor::visit(CallAstNode *call) {
   logzy::trace("Semantic check of CallAstNode");
@@ -90,8 +94,7 @@ void SemanticAnalysisVisitor::visit(IfElseAstNode *ifElse) {
   auto elseBodyType = ifElse->elseBody->resolvedType;
 
   if (ifBodyType != elseBodyType) {
-    logzy::error("if else types do not match. (int({}) vs int({}))",
-                 ifBodyType,
+    logzy::error("if else types do not match. (int({}) vs int({}))", ifBodyType,
                  elseBodyType);
     return;
   }
@@ -110,7 +113,7 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
                let->varName, let->rhs->resolvedType, let->resolvedType);
 }
 
-void SemanticAnalysisVisitor::visit(CastNode *cast) {
+void SemanticAnalysisVisitor::visit(CastNode * /*cast*/) {
   logzy::warn("Renalyzing ImplicitCastNode");
 }
 void SemanticAnalysisVisitor::visit(Function *func) {

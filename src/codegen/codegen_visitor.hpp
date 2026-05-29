@@ -11,20 +11,19 @@ namespace llvm {
 class CodeGenVisitor : public AstNodeVisitor {
  public:
   constexpr CodeGenVisitor(CompilerState *state) noexcept
-      : state{state} {}
+      : state_{state} {}
 
-  void visit(IntegerAstNode *) override;
-  void visit(FloatAstNode *) override;
-  void visit(VariableAstNode *) override;
-  void visit(AssignmentAstNode *) override;
-  void visit(CallAstNode *) override;
-  void visit(BinaryExprAstNode *) override;
-  void visit(BlockAstNode *) override;
-  void visit(IfElseAstNode *) override;
-  void visit(LetAstNode *) override;
-  // void visit(FunctionPrototype *) override; // No need for it to be a node
-  void visit(CastNode *) override;
-  void visit(Function *) override;
+  void visit(IntegerAstNode *integer) override;
+  void visit(FloatAstNode *flt) override;
+  void visit(VariableAstNode *var) override;
+  void visit(AssignmentAstNode *assignment) override;
+  void visit(CallAstNode *call) override;
+  void visit(BinaryExprAstNode *binExpr) override;
+  void visit(BlockAstNode *block) override;
+  void visit(IfElseAstNode *ifElse) override;
+  void visit(LetAstNode *let) override;
+  void visit(CastNode *cast) override;
+  void visit(Function *func) override;
 
  private:
   using Scope = std::unordered_map<std::string, llvm::AllocaInst *>;
@@ -59,38 +58,38 @@ class CodeGenVisitor : public AstNodeVisitor {
   constexpr void endScope();
 
  private:
-  std::vector<Scope> scopeValues{Scope{}};  // Global scope
-  CompilerState *state{nullptr};
+  std::vector<Scope> scopeValues_{Scope{}};  // Global scope
+  CompilerState *state_{nullptr};
 
   // Special member that acts as a 'return value' from latest node visit. Every
   // visit node should set this variable.
   // See {generate} utility method.
-  llvm::Value *ReturnValue{nullptr};
+  llvm::Value *ReturnValue{nullptr};  // NOLINT
 };
 
 constexpr auto CodeGenVisitor::currentScope() -> Scope & {
-  if (scopeValues.empty()) {
+  if (scopeValues_.empty()) {
     throw std::logic_error(
         "Scope values is empty. There must have been a "
         "skill issue as global scope disappeared");
   }
 
-  return scopeValues.back();
+  return scopeValues_.back();
 }
 
 constexpr void CodeGenVisitor::beginScope() {
-  scopeValues.emplace_back(currentScope());
+  scopeValues_.emplace_back(currentScope());
 
   DEBUG_ONLY(printScope("Symbols in after beginning new scope:"));
 }
 constexpr void CodeGenVisitor::endScope() {
-  if (scopeValues.empty()) {
+  if (scopeValues_.empty()) {
     throw std::logic_error(
         "Trying to pop an empty scope. There must be a "
         "mismatch between creating and deleting scopes");
   }
 
   DEBUG_ONLY(printScope("Symbols in before ending scope:"));
-  scopeValues.pop_back();
+  scopeValues_.pop_back();
   DEBUG_ONLY(printScope("Symbols in after beginning new scope:"));
 }

@@ -17,11 +17,15 @@ void SemanticAnalysisVisitor::visit(FloatAstNode *flt) {
 }
 void SemanticAnalysisVisitor::visit(VariableAstNode *var) {
   logzy::trace("Semantic check of VariableAstNode");
-  var->resolvedType = TivaType::Int;  // TODO :: No declaration of variables of
-                                      // other type than int yet
-  logzy::trace("All variable '{}' resolved as {}", var->name,
-               var->resolvedType);
-  logzy::warn("TODO ::All variables resolved as integer");
+  auto scopeVariableIter = currentScope().find(var->name);
+  if (scopeVariableIter == currentScope().end()) {
+    logzy::error("no variable '{}' in current scope", var->name);
+    return;
+  }
+
+  var->resolvedType = scopeVariableIter->second;
+
+  logzy::trace("variable '{}' resolved as {}", var->name, var->resolvedType);
 }
 void SemanticAnalysisVisitor::visit(AssignmentAstNode *assignment) {
   logzy::trace("Semantic check of AssignmentAstNode");
@@ -72,9 +76,12 @@ void SemanticAnalysisVisitor::visit(BlockAstNode *block) {
     return;
   }
 
+  beginScope();
   for (const auto &expr : block->expressions) {
     dispatch(expr.get());
   }
+
+  endScope();
 
   auto &lastExpression = block->expressions.back();
   block->resolvedType = lastExpression->resolvedType;
@@ -114,6 +121,8 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
 
   let->resolvedType = let->rhs->resolvedType;
 
+  currentScope()[let->varName] = let->resolvedType;
+
   logzy::trace("let expression's of '{}' = '{}' resolved typye is {}",
                let->varName, let->rhs->resolvedType, let->resolvedType);
 }
@@ -123,7 +132,9 @@ void SemanticAnalysisVisitor::visit(CastNode * /*cast*/) {
 }
 void SemanticAnalysisVisitor::visit(Function *func) {
   logzy::trace("Semantic check of Function");
+  beginScope();
   dispatch(func->body.get());
+  endScope();
 }
 
 void SemanticAnalysisVisitor::ensureValidTypes(

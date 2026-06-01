@@ -22,8 +22,12 @@ namespace driver {
     }
 
     Parser parser(code->sourceContent);
-    auto res2 = parser.parseFunction();
 
+    auto res1 = parser.parseFunction();
+    semanticAnalysisVisitor.visit(res1.get());
+    codegenVisitor.visit(res1.get());
+
+    auto res2 = parser.parseFunction();
     semanticAnalysisVisitor.visit(res2.get());
     codegenVisitor.visit(res2.get());
 

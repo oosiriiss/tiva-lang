@@ -45,8 +45,37 @@ void SemanticAnalysisVisitor::visit(AssignmentAstNode *assignment) {
 }
 void SemanticAnalysisVisitor::visit(CallAstNode *call) {
   logzy::trace("Semantic check of CallAstNode");
-  call->resolvedType = TivaType::Int;  // TODO :: No declaration of functions
-                                       // returning other type than int yet
+
+  for (auto &arg : call->args) {
+    dispatch(arg.get());
+  }
+
+  auto sigIter = functionTable_.find(call->toCall);
+  if (sigIter == functionTable_.end()) {
+    logzy::error("Trying to call undefined function '{}'", call->toCall);
+    return;
+  }
+  auto &sig = sigIter->second;
+  if (call->args.size() != sig.parameters.size()) {
+    logzy::error(
+        "The number of arguments passed ({}) to function '{}'  doesnt match "
+        "expected number ()",
+        call->args.size(), call->toCall, sig.parameters.size());
+    return;
+  }
+  for (size_t i = 0; i < call->args.size(); ++i) {
+    auto &arg = call->args[i];
+    auto &param = sig.parameters[i];
+    if (arg->resolvedType != param.declaredType) {
+      logzy::error(
+          "Argument {} (parameter={}) passed to function '{}' doesn't match "
+          "declared type. expected={} actual={}",
+          i, param.name, call->toCall, param.declaredType, arg->resolvedType);
+      return;
+    }
+  }
+
+  call->resolvedType = sig.returnType;
   logzy::trace("Call to function '{}' resolved as type '{}'", call->toCall,
                call->resolvedType);
   logzy::warn("TODO :: All call return types resolved as integer");
@@ -135,6 +164,25 @@ void SemanticAnalysisVisitor::visit(FunctionPrototype *proto) {
   for (auto &param : proto->params) {
     currentScope()[param.name] = param.declaredType;
   }
+
+  auto sigIter = functionTable_.find(proto->name);
+  if (sigIter != functionTable_.end()) {
+    FunctionSignature &sig = sigIter->second;
+    if (proto->params.size() != sig.parameters.size()) {
+      logzy::error(
+          "Function '{}' redeclared with different number of parameters "
+          "current={} "
+          "vs previous={}",
+          proto->name, proto->params.size(), sig.parameters.size());
+      return;
+    }
+    // TODO :: Chekcing types of parameters
+  }
+
+  functionTable_[proto->name] =
+      FunctionSignature{.name = proto->name,
+                        .parameters = proto->params,
+                        .returnType = proto->returnType};
 }
 void SemanticAnalysisVisitor::visit(Function *func) {
   logzy::trace("Semantic check of Function");

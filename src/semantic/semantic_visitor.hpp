@@ -35,6 +35,8 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
   constexpr void endScope();
 
   std::vector<Scope> scopeValues_{Scope{}};  // Global scope
+
+  std::unordered_map<std::string, FunctionSignature> functionTable_;
 };
 
 constexpr void SemanticAnalysisVisitor::cast(std::unique_ptr<AstNode> &input,

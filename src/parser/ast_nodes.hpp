@@ -161,10 +161,6 @@ struct CastNode : public AstNode {
   TivaType targetType;
 };
 
-struct Parameter {
-  std::string name;
-  TivaType declaredType;
-};
 
 struct FunctionPrototype : public AstNode {
  public:

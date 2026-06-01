@@ -2,6 +2,7 @@
 
 #include <format>
 #include <string_view>
+#include <vector>
 
 namespace llvm {
   struct Type;
@@ -15,6 +16,17 @@ namespace typing {
 enum class TivaType : std::uint8_t { Int, Float, Unknown };
 
 [[nodiscard]] auto toLlvm(llvm::LLVMContext& ctx, TivaType type) -> llvm::Type*;
+
+struct Parameter {
+  std::string name;
+  TivaType declaredType;
+};
+
+struct FunctionSignature {
+  std::string name;
+  std::vector<Parameter> parameters;
+  TivaType returnType;
+};
 
 [[nodiscard]] constexpr auto fromString(std::string_view type) noexcept
     -> TivaType {

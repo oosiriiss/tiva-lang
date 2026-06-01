@@ -42,8 +42,6 @@ struct CompilerState::OptimizeState {
   llvm::CGSCCAnalysisManager callGraphAnalysisManager;
   llvm::LoopAnalysisManager loopAnalysisManager;
 
-  // TODO :: Currently functions are optimized right after definitions. They
-  // could be optimized when the code generationm for the module is finished
   llvm::FunctionAnalysisManager functionAnalysisManager;
   llvm::FunctionPassManager functionPassManager;
 

@@ -16,10 +16,10 @@
 namespace {
 
   enum Precedence : std::int8_t {
-    None,
-    Assignment,
-    Term,
-    Factor,
+    None = -1,
+    Assignment = 2,
+    Term = 10,
+    Factor = 20,
   };
 
   using PrecedenceType = std::underlying_type_t<Precedence>;
@@ -90,36 +90,36 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
     return std::make_unique<VariableAstNode>(identifier);
   }
 
+  expectToken(TokenType::ParenBegin);
+  nextToken();
   // Call
-  if (currentToken_.type == TokenType::ParenBegin) {
-    std::vector<std::unique_ptr<AstNode>> args;
+  logzy::trace("Identifier '{}' is a call", identifier);
+  std::vector<std::unique_ptr<AstNode>> args;
 
-    while (true) {
-      if (auto arg = parseExpression()) {
-        args.emplace_back(std::move(arg));
-      } else {
-        return nullptr;
-      }
-
-      if (currentToken_.type == TokenType::ParenEnd) {
-        break;
-      }
-
-      if (currentToken_.type != TokenType::Comma) {
-        logzy::error("Expected ',' or ')' in function '{}' arguments",
-                     identifier);
-        return nullptr;
-      }
-
-      expectToken(TokenType::Comma);
-      nextToken();
+  while (currentToken_.type != TokenType::ParenEnd) {
+    logzy::trace("Parsing argument");
+    if (auto arg = parseExpression()) {
+      args.emplace_back(std::move(arg));
+    } else {
+      return nullptr;
     }
-    return std::make_unique<CallAstNode>(identifier, std::move(args));
-  }
 
-  logzy::error("Invalid token '{}' after identifier '{}'", currentToken_,
-               identifier);
-  return nullptr;
+    if (currentToken_.type != TokenType::Comma &&
+        currentToken_.type != TokenType::ParenEnd) {
+      logzy::error("Expected ',' or ')' in function '{}' arguments",
+                   identifier);
+      return nullptr;
+    }
+
+    if (currentToken_.type == TokenType::ParenEnd) {
+      break;
+    }
+    expectToken(TokenType::Comma);
+    nextToken();
+  }
+  expectToken(TokenType::ParenEnd);
+  nextToken();
+  return std::make_unique<CallAstNode>(identifier, std::move(args));
 }
 
 [[nodiscard]] auto Parser::parseParentheses() -> std::unique_ptr<AstNode> {
@@ -225,6 +225,7 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
 
   logzy::trace("Parsing expression's right side");
   if (currentToken_.type == TokenType::Assign) {
+    logzy::trace("Expression is an assignment");
     nextToken();
 
     std::unique_ptr<AstNode> rhs = parseExpression();
@@ -235,7 +236,9 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
 
     return std::make_unique<AssignmentAstNode>(std::move(lhs), std::move(rhs));
   }
-  return parseBinaryExpressionRhs(Precedence::None + 1, std::move(lhs));
+  auto rhs = parseBinaryExpressionRhs(0, std::move(lhs));
+  logzy::trace("right side parsed");
+  return rhs;
 }
 
 [[nodiscard]] auto Parser::parseBinaryExpressionRhs(

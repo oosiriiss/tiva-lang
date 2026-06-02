@@ -351,6 +351,11 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
     expectToken(TokenType::Identifier);  // Declared type
     // TODO :: Detect invalid types
     declaredType = fromString(currentToken_.value);
+    if (declaredType == TivaType::Unknown) {
+      logzy::error("Invalid type variable '{}' has an unknown type '{}'",
+                   varName, currentToken_.value);
+      return nullptr;
+    }
     nextToken();
   }
 

@@ -3,5 +3,6 @@ fn multiply(a:i32,b:i32) -> float {
 }
 
 fn testFn(a:i32,b:float,c:i32) -> i32 {
+   let z:heh = 5.0
    multiply(c,multiply(a,b))
 }

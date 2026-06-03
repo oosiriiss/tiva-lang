@@ -2,6 +2,7 @@
 
 #include <llvm/IR/Intrinsics.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -369,6 +370,34 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
   }
 
   return std::make_unique<LetAstNode>(varName, std::move(rhs), declaredType);
+}
+
+[[nodiscard]] auto Parser::parseGlobalDeclaration()
+    -> std::unique_ptr<AstNode> {
+  if (currentToken_.type == TokenType::Function) {
+    return parseFunction();
+  }
+
+  logzy::error("Couldn't parse global declaration starting with token: {}",
+               currentToken_.type);
+  return nullptr;
+}
+
+[[nodiscard]] auto Parser::parseTranslationUnit()
+    -> std::unique_ptr<TranslationUnitAstNode> {
+  std::vector<std::unique_ptr<AstNode>> globalDeclarations;
+
+  while (currentToken_.type != TokenType::Eof) {
+    auto declaration = parseGlobalDeclaration();
+    if (declaration == nullptr) {
+      logzy::error("Couldn't parse global declaration");
+      break;
+    }
+    globalDeclarations.emplace_back(std::move(declaration));
+  }
+
+  return std::make_unique<TranslationUnitAstNode>(
+      std::move(globalDeclarations));
 }
 
 void Parser::expectToken(TokenType type) const {

@@ -23,13 +23,9 @@ namespace driver {
 
     Parser parser(code->sourceContent);
 
-    auto res1 = parser.parseFunction();
-    semanticAnalysisVisitor.visit(res1.get());
-    codegenVisitor.visit(res1.get());
-
-    auto res2 = parser.parseFunction();
-    semanticAnalysisVisitor.visit(res2.get());
-    codegenVisitor.visit(res2.get());
+    auto unit = parser.parseTranslationUnit();
+    semanticAnalysisVisitor.visit(unit.get());
+    codegenVisitor.visit(unit.get());
 
     logzy::info("IR before optimizations");
     compilerState.printIr();

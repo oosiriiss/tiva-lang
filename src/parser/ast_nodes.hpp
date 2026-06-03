@@ -161,7 +161,6 @@ struct CastNode : public AstNode {
   TivaType targetType;
 };
 
-
 struct FunctionPrototype : public AstNode {
  public:
   constexpr FunctionPrototype(std::string_view name,
@@ -192,6 +191,18 @@ struct Function : public AstNode {
   std::unique_ptr<AstNode> body;
 };
 
+struct TranslationUnitAstNode : public AstNode {
+ public:
+  constexpr TranslationUnitAstNode(
+      std::vector<std::unique_ptr<AstNode>> &&declarations)
+      : declarations{std::move(declarations)} {}
+
+  void accept(AstNodeVisitor *visitor) override;
+
+ public:
+  std::vector<std::unique_ptr<AstNode>> declarations;
+};
+
 struct AstNodeVisitor {
   AstNodeVisitor() = default;
   AstNodeVisitor(const AstNodeVisitor &) = default;
@@ -213,6 +224,7 @@ struct AstNodeVisitor {
   virtual void visit(CastNode *) = 0;
   virtual void visit(FunctionPrototype *) = 0;
   virtual void visit(Function *) = 0;
+  virtual void visit(TranslationUnitAstNode *) = 0;
 };
 
 inline void IntegerAstNode::accept(AstNodeVisitor *visitor) {
@@ -247,3 +259,6 @@ inline void FunctionPrototype::accept(AstNodeVisitor *visitor) {
 }
 inline void CastNode::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
 inline void Function::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
+inline void TranslationUnitAstNode::accept(AstNodeVisitor *visitor) {
+  visitor->visit(this);
+}

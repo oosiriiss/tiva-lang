@@ -21,6 +21,7 @@ enum class TokenType : char {
   Let,
   Colon,
   Arrow,
+  Eof,
   Unknown,
 };
 
@@ -67,6 +68,8 @@ constexpr auto toString(TokenType type) noexcept -> std::string_view {
       return "Colon";
     case TokenType::Arrow:
       return "Arrow";
+    case TokenType::Eof:
+      return "Eof";
     case TokenType::Unknown:
       return "Unknown";
     default:

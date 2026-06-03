@@ -490,3 +490,9 @@ void CodeGenVisitor::visit(Function *func) {
   llvm::verifyFunction(*llvmFunc);
   ReturnValue = llvmFunc;
 }
+
+void CodeGenVisitor::visit(TranslationUnitAstNode *unit) {
+  for (auto &declaration : unit->declarations) {
+    declaration->accept(this);
+  }
+}

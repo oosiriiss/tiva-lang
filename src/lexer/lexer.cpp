@@ -21,6 +21,10 @@ auto Lexer::nextToken() -> Token {
   skipWhitespace();
   logzy::trace("source[0..16]='{}'", source_.substr(0, SOURCE_FORESEE_LENGTH));
 
+  if (source_.length() <= 0) {
+    return Token{.value = "", .type = TokenType::Eof};
+  }
+
   if (auto tokenStringValue = readIdentifier()) {
     source_.remove_prefix(tokenStringValue->length());
 
@@ -207,6 +211,7 @@ namespace {
 
   };
 }
+
 
 void Lexer::skipWhitespace() noexcept {
   while (source_.size() > 0 && isWhitespace(source_[0])) {

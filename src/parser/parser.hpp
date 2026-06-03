@@ -31,6 +31,11 @@ class Parser {
   [[nodiscard]] auto parseIfElse() -> std::unique_ptr<IfElseAstNode>;
   [[nodiscard]] auto parseLet() -> std::unique_ptr<LetAstNode>;
 
+  [[nodiscard]] auto parseGlobalDeclaration()
+      -> std::unique_ptr<AstNode>;
+  [[nodiscard]] auto parseTranslationUnit()
+      -> std::unique_ptr<TranslationUnitAstNode>;
+
   constexpr void nextToken();
   void expectToken(TokenType type) const;
 

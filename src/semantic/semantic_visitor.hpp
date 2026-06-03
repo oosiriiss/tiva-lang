@@ -21,6 +21,7 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
   void visit(CastNode *cast) override;
   void visit(FunctionPrototype *proto) override;
   void visit(Function *func) override;
+  void visit(TranslationUnitAstNode *unit) override;
 
  private:
   using Scope = std::unordered_map<std::string, TivaType>;

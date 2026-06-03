@@ -234,3 +234,9 @@ void SemanticAnalysisVisitor::ensureValidTypes(
     cast(right, Float);
   }
 }
+
+void SemanticAnalysisVisitor::visit(TranslationUnitAstNode *unit) {
+  for (auto &declaration : unit->declarations) {
+    declaration->accept(this);
+  }
+}

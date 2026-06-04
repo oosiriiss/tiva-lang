@@ -1,12 +1,5 @@
-fn multiply(a:i32,b:i32) -> float {
-   a * b
-}
-
-fn baller(a:float) -> i32 {
-   a * 2.0
-}
-
 fn testFn(a:i32,b:float,c:i32) -> i32 {
-   multiply(a,baller(b))
+   let z:bool = true
+   z = false
 }
 

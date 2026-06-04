@@ -72,6 +72,8 @@ auto Lexer::nextToken() -> Token {
     type = TokenType::Else;
   } else if (identifierString == "let") {
     type = TokenType::Let;
+  } else if (identifierString == "true" || identifierString == "false") {
+    type = TokenType::Boolean;
   } else {
     logzy::trace("unknown keyword '{}'", identifierString);
     return std::nullopt;
@@ -211,7 +213,6 @@ namespace {
 
   };
 }
-
 
 void Lexer::skipWhitespace() noexcept {
   while (source_.size() > 0 && isWhitespace(source_[0])) {

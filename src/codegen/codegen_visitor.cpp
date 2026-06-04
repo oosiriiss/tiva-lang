@@ -2,6 +2,7 @@
 
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APInt.h>
+#include <llvm/ADT/APSInt.h>
 #include <llvm/Analysis/CGSCCPassManager.h>
 #include <llvm/Analysis/LoopAnalysisManager.h>
 #include <llvm/IR/BasicBlock.h>
@@ -84,6 +85,14 @@ void CodeGenVisitor::visit(IntegerAstNode *integer) {
 void CodeGenVisitor::visit(FloatAstNode *flt) {
   logzy::trace("generating code for number '{}'", flt->val);
   ReturnValue = llvm::ConstantFP::get(state_->context, llvm::APFloat(flt->val));
+}
+
+void CodeGenVisitor::visit(BooleanAstNode *boolean) {
+  logzy::trace("generating code for boolean '{}'", boolean->val);
+
+  ReturnValue = (boolean->val) ? llvm::ConstantInt::getTrue(state_->context)
+                               : llvm::ConstantInt::getFalse(state_->context);
+  logzy::trace("Generated code for boolean");
 }
 
 void CodeGenVisitor::visit(VariableAstNode *var) {

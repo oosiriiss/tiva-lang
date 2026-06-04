@@ -15,6 +15,13 @@ void SemanticAnalysisVisitor::visit(FloatAstNode *flt) {
   flt->resolvedType = TivaType::Float;
   logzy::trace("{} resolved as float", flt->val);
 }
+
+void SemanticAnalysisVisitor::visit(BooleanAstNode *boolean) {
+  logzy::trace("Semantic check of BooleanAstNode");
+  boolean->resolvedType = TivaType::Boolean;
+  logzy::trace("{} resolved as bool", boolean->val);
+}
+
 void SemanticAnalysisVisitor::visit(VariableAstNode *var) {
   logzy::trace("Semantic check of VariableAstNode");
   auto scopeVariableIter = currentScope().find(var->name);

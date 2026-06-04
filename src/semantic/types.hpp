@@ -11,9 +11,16 @@ namespace llvm {
 
 namespace typing {
   constexpr auto INT_BITS = 32;
-}
+  constexpr auto BOOL_BITS = 1;
+}  // namespace typing
 
-enum class TivaType : std::uint8_t { Int, Float, Unknown };
+enum class TivaType : std::uint8_t {
+  Int,
+  Float,
+  Boolean,
+  Unknown,
+};
+
 
 [[nodiscard]] auto toLlvm(llvm::LLVMContext& ctx, TivaType type) -> llvm::Type*;
 
@@ -37,6 +44,10 @@ struct FunctionSignature {
     return TivaType::Float;
   }
 
+  if (type == "bool") {
+    return TivaType::Boolean;
+  }
+
   return TivaType::Unknown;
 }
 
@@ -53,6 +64,7 @@ struct std::formatter<TivaType> : std::formatter<std::string_view> {
     switch (type) {
       TYPE_FORMAT(Int);
       TYPE_FORMAT(Float);
+      TYPE_FORMAT(Boolean);
 
       case TivaType::Unknown:
         throw std::invalid_argument(std::format(

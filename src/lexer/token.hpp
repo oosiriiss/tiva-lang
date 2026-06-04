@@ -5,6 +5,7 @@
 enum class TokenType : char {
   Identifier,
   Number,
+  Boolean,
   Plus,
   Minus,
   Divide,
@@ -36,6 +37,8 @@ constexpr auto toString(TokenType type) noexcept -> std::string_view {
       return "Identifier";
     case TokenType::Number:
       return "Number";
+    case TokenType::Boolean:
+      return "Boolean";
     case TokenType::Plus:
       return "Plus";
     case TokenType::Minus:

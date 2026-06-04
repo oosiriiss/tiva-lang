@@ -51,6 +51,17 @@ struct FloatAstNode : public AstNode {
   double val;
 };
 
+struct BooleanAstNode : public AstNode {
+ public:
+  constexpr BooleanAstNode(bool value)
+      : val{value} {}
+
+  void accept(AstNodeVisitor *visitor) override;
+
+ public:
+  bool val;
+};
+
 struct VariableAstNode : public AstNode {
  public:
   constexpr explicit VariableAstNode(std::string_view name)
@@ -214,6 +225,7 @@ struct AstNodeVisitor {
   void dispatch(AstNode *node) { node->accept(this); }
   virtual void visit(IntegerAstNode *) = 0;
   virtual void visit(FloatAstNode *) = 0;
+  virtual void visit(BooleanAstNode *) = 0;
   virtual void visit(VariableAstNode *) = 0;
   virtual void visit(AssignmentAstNode *) = 0;
   virtual void visit(CallAstNode *) = 0;
@@ -231,6 +243,9 @@ inline void IntegerAstNode::accept(AstNodeVisitor *visitor) {
   visitor->visit(this);
 }
 inline void FloatAstNode::accept(AstNodeVisitor *visitor) {
+  visitor->visit(this);
+}
+inline void BooleanAstNode::accept(AstNodeVisitor *visitor) {
   visitor->visit(this);
 }
 inline void VariableAstNode::accept(AstNodeVisitor *visitor) {

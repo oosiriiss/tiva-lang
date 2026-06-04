@@ -47,6 +47,8 @@ namespace {
       return parseIdentifier();
     case TokenType::Number:
       return parseNumber();
+    case TokenType::Boolean:
+      return parseBoolean();
     case TokenType::ParenBegin:
       return parseParentheses();
     case TokenType::CurlyBegin:
@@ -73,6 +75,24 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
     result = std::make_unique<FloatAstNode>(currentToken_.value);
   } else {
     result = std::make_unique<IntegerAstNode>(currentToken_.value);
+  }
+
+  nextToken();
+  return result;
+}
+
+auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
+  expectToken(TokenType::Boolean);
+  logzy::trace("Parsing boolean'{}'", currentToken_.value);
+
+  std::unique_ptr<BooleanAstNode> result;
+
+  if (currentToken_.value == "true") {
+    result = std::make_unique<BooleanAstNode>(true);
+  }
+
+  if (currentToken_.value == "false") {
+    result = std::make_unique<BooleanAstNode>(false);
   }
 
   nextToken();

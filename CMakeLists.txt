@@ -78,8 +78,18 @@ target_compile_features(tiva-compiler-lib PUBLIC cxx_std_23)
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 target_compile_options(tiva-compiler-lib PUBLIC ${LLVM_DEFINITIONS_LIST})
 
-llvm_map_components_to_libnames(llvm_libs core native passes analysis support)
-target_link_libraries(tiva-compiler-lib PUBLIC ${llvm_libs} logzy::logzy)
+if(LLVM_LINK_LLVM_DYLIB)
+    message(STATUS "Linking with mono LLVM library")
+    set(LLVM_LIBRARIES LLVM)
+else()
+   message(STATUS "Linking with LLMV components")
+   llvm_map_components_to_libnames(LLVM_LIBRARIES core native passes analysis support)
+endif()
+
+
+target_link_libraries(tiva-compiler-lib PUBLIC ${LLVM_LIBRARIES} logzy::logzy)
+
+message(STATUS "LLVM libs: ${LLVM_LIBRARIES}")
 
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

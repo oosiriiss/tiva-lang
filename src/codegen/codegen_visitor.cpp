@@ -391,10 +391,14 @@ void CodeGenVisitor::visit(CastNode *cast) {
     return;
   }
 
+  using TivaType::Boolean;
   using TivaType::Float;
   using TivaType::Int;
 
-  if (cast->resolvedType == Int && cast->targetType == Float) {
+  TivaType sourceType = cast->operand->resolvedType;
+  TivaType targetType = cast->targetType;
+
+  if (sourceType == Int && targetType == Float) {
     logzy::trace("Casting int to float");
     ReturnValue = state_->builder.CreateSIToFP(
         operandValue, llvm::Type::getDoubleTy(state_->context),
@@ -402,15 +406,22 @@ void CodeGenVisitor::visit(CastNode *cast) {
     return;
   }
 
-  if (cast->resolvedType == Float && cast->targetType == Int) {
+  if (sourceType == Float && targetType == Int) {
     logzy::trace("Casting float to int");
     ReturnValue = state_->builder.CreateFPToSI(
         operandValue, llvm::Type::getInt32Ty(state_->context));
     return;
   }
 
-  logzy::error("Invalid conversion from int({}) to int({})", cast->resolvedType,
-               cast->targetType);
+  if (sourceType == Boolean && targetType == Int) {
+    logzy::trace("Casting boolean to int");
+    ReturnValue = state_->builder.CreateIntCast(
+        operandValue, toLlvm(state_->context, TivaType::Int), true);
+    return;
+  }
+
+  logzy::error("Invalid conversion from type '{}' to '{}'", sourceType,
+               targetType);
 }
 
 void CodeGenVisitor::visit(FunctionPrototype *proto) {

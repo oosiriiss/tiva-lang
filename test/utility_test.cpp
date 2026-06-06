@@ -1,4 +1,4 @@
-#include "utility.hpp"
+#include "utility/utility.hpp"
 #include <array>
 #include <cmath>
 #include <gtest/gtest.h>

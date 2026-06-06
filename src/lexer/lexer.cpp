@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "lexer/token.hpp"
-#include "utility.hpp"
+#include "utility/utility.hpp"
 
 using util::isDigit;
 using util::isLetter;

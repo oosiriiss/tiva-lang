@@ -6,7 +6,7 @@
 
 #include "lexer/token.hpp"
 #include "semantic/types.hpp"
-#include "utility.hpp"
+#include "utility/utility.hpp"
 
 struct CompilerState;
 class AstNodeVisitor;

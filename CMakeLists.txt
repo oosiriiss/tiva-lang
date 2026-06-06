@@ -22,7 +22,7 @@ add_library(
    ./src/lexer/lexer.cpp
    ./src/lexer/lexer.hpp
    ./src/lexer/token.hpp
-   ./src/utility.hpp
+   ./src/utility/utility.hpp
 
    ./src/parser/parser.cpp
    ./src/parser/parser.hpp

@@ -24,13 +24,14 @@ void SemanticAnalysisVisitor::visit(BooleanAstNode *boolean) {
 
 void SemanticAnalysisVisitor::visit(VariableAstNode *var) {
   logzy::trace("Semantic check of VariableAstNode");
-  auto scopeVariableIter = currentScope().find(var->name);
-  if (scopeVariableIter == currentScope().end()) {
+
+  auto variable = scopes_.findVariable(var->name);
+  if (!variable) {
     logzy::error("no variable '{}' in current scope", var->name);
     return;
   }
 
-  var->resolvedType = scopeVariableIter->second;
+  var->resolvedType = *variable;
 
   logzy::trace("variable '{}' resolved as {}", var->name, var->resolvedType);
 }
@@ -85,7 +86,6 @@ void SemanticAnalysisVisitor::visit(CallAstNode *call) {
   call->resolvedType = sig.returnType;
   logzy::trace("Call to function '{}' resolved as type '{}'", call->toCall,
                call->resolvedType);
-  logzy::warn("TODO :: All call return types resolved as integer");
 }
 void SemanticAnalysisVisitor::visit(BinaryExprAstNode *binExp) {
   logzy::trace("Semantic check of BinaryExprAstNode");
@@ -112,12 +112,12 @@ void SemanticAnalysisVisitor::visit(BlockAstNode *block) {
     return;
   }
 
-  beginScope();
-  for (const auto &expr : block->expressions) {
-    dispatch(expr.get());
+  {
+    auto scope = scopes_.scopeGuard();
+    for (const auto &expr : block->expressions) {
+      dispatch(expr.get());
+    }
   }
-
-  endScope();
 
   auto &lastExpression = block->expressions.back();
   block->resolvedType = lastExpression->resolvedType;
@@ -157,7 +157,7 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
 
   let->resolvedType = let->rhs->resolvedType;
 
-  currentScope()[let->varName] = let->resolvedType;
+  scopes_.putVariable(let->varName, let->resolvedType);
 
   logzy::trace("let expression's of '{}' = '{}' resolved typye is {}",
                let->varName, let->rhs->resolvedType, let->resolvedType);
@@ -169,7 +169,7 @@ void SemanticAnalysisVisitor::visit(CastNode * /*cast*/) {
 
 void SemanticAnalysisVisitor::visit(FunctionPrototype *proto) {
   for (auto &param : proto->params) {
-    currentScope()[param.name] = param.declaredType;
+    scopes_.putVariable(param.name, param.declaredType);
   }
 
   auto sigIter = functionTable_.find(proto->name);
@@ -193,10 +193,11 @@ void SemanticAnalysisVisitor::visit(FunctionPrototype *proto) {
 }
 void SemanticAnalysisVisitor::visit(Function *func) {
   logzy::trace("Semantic check of Function");
-  beginScope();
-  dispatch(func->prototype.get());
-  dispatch(func->body.get());
-  endScope();
+  {
+    auto scope = scopes_.scopeGuard();
+    dispatch(func->prototype.get());
+    dispatch(func->body.get());
+  }
 
   logzy::trace("Function's body inferred type: '{}'", func->body->resolvedType);
   if (func->prototype->returnType != TivaType::Unknown &&

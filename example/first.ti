@@ -1,5 +1,12 @@
 fn testFn(a:i32,b:float,c:i32) -> i32 {
    let z:bool = true
    z = false
+   let x = 1
+   {
+      let y = 5
+      let yy = 10
+
+      y + yy + x
+   }
 }
 

@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "core/scope_map.hpp"
 #include "parser/ast_nodes.hpp"
 #include "semantic/types.hpp"
 
@@ -32,11 +33,7 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
   static constexpr void cast(std::unique_ptr<AstNode> &input,
                              TivaType targetType);
 
-  constexpr auto currentScope() -> Scope &;
-  constexpr void beginScope();
-  constexpr void endScope();
-
-  std::vector<Scope> scopeValues_{Scope{}};  // Global scope
+  ScopeContainer<TivaType> scopes_;
 
   std::unordered_map<std::string, FunctionSignature> functionTable_;
 };
@@ -44,26 +41,4 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
 constexpr void SemanticAnalysisVisitor::cast(std::unique_ptr<AstNode> &input,
                                              TivaType targetType) {
   input = std::make_unique<CastNode>(std::move(input), targetType);
-}
-
-constexpr auto SemanticAnalysisVisitor::currentScope() -> Scope & {
-  if (scopeValues_.empty()) {
-    throw std::logic_error(
-        "Scope values is empty. There must have been a "
-        "skill issue as global scope disappeared");
-  }
-
-  return scopeValues_.back();
-}
-
-constexpr void SemanticAnalysisVisitor::beginScope() {
-  scopeValues_.emplace_back(currentScope());
-}
-constexpr void SemanticAnalysisVisitor::endScope() {
-  if (scopeValues_.empty()) {
-    throw std::logic_error(
-        "Trying to pop an empty scope. There must be a "
-        "mismatch between creating and deleting scopes");
-  }
-  scopeValues_.pop_back();
 }

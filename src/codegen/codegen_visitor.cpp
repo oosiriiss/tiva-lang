@@ -59,13 +59,6 @@
   return generate(node.get());
 }
 
-void CodeGenVisitor::printScope(std::string_view message) {
-  llvm::errs() << message << '\n';
-  for (auto &[key, val] : scopeValues_.back()) {
-    llvm::errs() << "(" << key << "," << val << ")\n";
-  }
-}
-
 auto CodeGenVisitor::allocateInEntryBlock(llvm::Function *func,
                                           std::string_view variableName,
                                           TivaType type) -> llvm::AllocaInst * {
@@ -97,29 +90,30 @@ void CodeGenVisitor::visit(BooleanAstNode *boolean) {
 
 void CodeGenVisitor::visit(VariableAstNode *var) {
   logzy::trace("generating code for variable '{}' (r-value)", var->name);
-  auto val = currentScope().find(var->name);
-  if (val == currentScope().end()) {
+
+  auto variable = scopes_.findVariable(var->name);
+  if (!variable) {
     logzy::warn("variable not found in this scope");
     ReturnValue = nullptr;
     return;
   }
 
   // Generates a value (R-value)
-  ReturnValue = state_->builder.CreateLoad(val->second->getAllocatedType(),
-                                           val->second, val->first.c_str());
+  ReturnValue = state_->builder.CreateLoad(variable->get()->getAllocatedType(),
+                                           variable->get(), var->name);
 }
 void CodeGenVisitor::visit(AssignmentAstNode *assignment) {
   auto *var = dynamic_cast<VariableAstNode *>(assignment->lhs.get());
   logzy::trace("Generating code for assignemnt of var: '{}'", var->name);
 
-  auto varIter = currentScope().find(var->name);
-  if (varIter == currentScope().end()) {
+  auto variable = scopes_.findVariable(var->name);
+  if (!variable) {
     logzy::warn("variable not found in this scope");
     ReturnValue = nullptr;
     return;
   }
 
-  llvm::AllocaInst *lhs = varIter->second;
+  llvm::AllocaInst *lhs = variable->get();
   auto *rhsValue = generate(assignment->rhs);
 
   if (rhsValue == nullptr) {
@@ -246,15 +240,17 @@ void CodeGenVisitor::visit(BlockAstNode *block) {
   logzy::trace("Generating code for block with {} expressions",
                expressions.size());
 
-  beginScope();
+  {
+    auto scope = scopes_.scopeGuard();
 
-  for (auto &expr : block->expressions) {
-    ReturnValue = generate(expr);
+    for (auto &expr : block->expressions) {
+      ReturnValue = generate(expr);
 
-    if (ReturnValue == nullptr) {
-      logzy::error("Failed to generate code for expression");
-      ReturnValue = nullptr;
-      return;
+      if (ReturnValue == nullptr) {
+        logzy::error("Failed to generate code for expression");
+        ReturnValue = nullptr;
+        return;
+      }
     }
   }
 
@@ -265,8 +261,7 @@ void CodeGenVisitor::visit(BlockAstNode *block) {
     return;
   }
 
-  endScope();
-  // ReturnValue set by the last expression.
+  // ReturnValue set while evaluating expressions
 }
 void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
   std::unique_ptr<AstNode> &condition = ifElse->condition;
@@ -296,14 +291,6 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
 
   llvm::BasicBlock *mergeBlock = llvm::BasicBlock::Create(
       state_->context, "ifMerge");  // Not yet inserted to the function
-
-  // TODO :: instead fo generatingthe phi node and branches, a simple seleect
-  // instruciton looks simpler. But it looks like the llvm automatically does
-  // this.
-  //
-  //  %1 = icmp sgt i32 %a, %b
-  //  %2 = select i1 %1, i32 %a, i32 %b
-  //  ret i32 %2
 
   state_->builder.CreateCondBr(conditonValue, ifBlock, elseBlock);
 
@@ -353,7 +340,7 @@ void CodeGenVisitor::visit(LetAstNode *let) {
   std::unique_ptr<AstNode> &rhs = let->rhs;
 
   // TODO :: Unnecessary cast to string, make scopeValues comparator transparent
-  if (currentScope().contains(std::string(varName))) {
+  if (scopes_.findVariable(varName).has_value()) {
     logzy::error(
         "There already exists a variable with name {} in current scope.",
         varName);
@@ -369,7 +356,7 @@ void CodeGenVisitor::visit(LetAstNode *let) {
 
   logzy::trace("variable '{}' allocated on stack", let->varName);
 
-  currentScope()[std::string(varName)] = alloc;
+  scopes_.putVariable(varName, alloc);
 
   auto *rhsValue = generate(rhs);
   if (rhsValue == nullptr) {
@@ -484,28 +471,31 @@ void CodeGenVisitor::visit(Function *func) {
       llvm::BasicBlock::Create(state_->context, "entry", llvmFunc);
   state_->builder.SetInsertPoint(block);
 
-  beginScope();
-  size_t currentArgIndex = 0;
-  for (auto &arg : llvmFunc->args()) {
-    auto *allocated =
-        allocateInEntryBlock(llvmFunc, arg.getName(),
-                             prototype->params[currentArgIndex++].declaredType);
-    state_->builder.CreateStore(&arg, allocated);
-    currentScope()[std::string(arg.getName())] = allocated;
+  llvm::Value *retVal = nullptr;
+  {
+    auto scope = scopes_.scopeGuard();
+
+    size_t currentArgIndex = 0;
+    for (auto &arg : llvmFunc->args()) {
+      auto *allocated = allocateInEntryBlock(
+          llvmFunc, arg.getName(),
+          prototype->params[currentArgIndex++].declaredType);
+      state_->builder.CreateStore(&arg, allocated);
+      scopes_.putVariable(arg.getName(), allocated);
+    }
+
+    logzy::debug("Generating code for function '{}' body", prototype->name);
+    retVal = generate(func->body);
   }
 
-  logzy::debug("Generating code for function '{}' body", prototype->name);
-  auto *returnValue = generate(func->body);
-  endScope();
-
-  if (returnValue == nullptr) {
+  if (retVal == nullptr) {
     logzy::error("Function didn't return value");
     llvmFunc->eraseFromParent();
     ReturnValue = nullptr;
     return;
   }
 
-  state_->builder.CreateRet(returnValue);
+  state_->builder.CreateRet(retVal);
 
   llvm::verifyFunction(*llvmFunc);
   ReturnValue = llvmFunc;

@@ -1,5 +1,6 @@
 #pragma once
 #include "codegen/module.hpp"
+#include "core/scope_map.hpp"
 #include "debug.hpp"
 #include "parser/ast_nodes.hpp"
 
@@ -29,8 +30,6 @@ class CodeGenVisitor : public AstNodeVisitor {
   void visit(TranslationUnitAstNode *unit) override;
 
  private:
-  using Scope = std::unordered_map<std::string, llvm::AllocaInst *>;
-
   /**
    * Calls node's accept method and returns ReturnValue
    *
@@ -51,17 +50,11 @@ class CodeGenVisitor : public AstNodeVisitor {
   // 	}
   // }
 
-  void printScope(std::string_view message);
-
   auto allocateInEntryBlock(llvm::Function *func, std::string_view variableName,
                             TivaType type) -> llvm::AllocaInst *;
 
-  constexpr auto currentScope() -> Scope &;
-  constexpr void beginScope();
-  constexpr void endScope();
-
  private:
-  std::vector<Scope> scopeValues_{Scope{}};  // Global scope
+  ScopeContainer<llvm::AllocaInst *> scopes_;
   CompilerState *state_{nullptr};
 
   // Special member that acts as a 'return value' from latest node visit. Every
@@ -69,30 +62,3 @@ class CodeGenVisitor : public AstNodeVisitor {
   // See {generate} utility method.
   llvm::Value *ReturnValue{nullptr};  // NOLINT
 };
-
-constexpr auto CodeGenVisitor::currentScope() -> Scope & {
-  if (scopeValues_.empty()) {
-    throw std::logic_error(
-        "Scope values is empty. There must have been a "
-        "skill issue as global scope disappeared");
-  }
-
-  return scopeValues_.back();
-}
-
-constexpr void CodeGenVisitor::beginScope() {
-  scopeValues_.emplace_back(currentScope());
-
-  DEBUG_ONLY(printScope("Symbols in after beginning new scope:"));
-}
-constexpr void CodeGenVisitor::endScope() {
-  if (scopeValues_.empty()) {
-    throw std::logic_error(
-        "Trying to pop an empty scope. There must be a "
-        "mismatch between creating and deleting scopes");
-  }
-
-  DEBUG_ONLY(printScope("Symbols in before ending scope:"));
-  scopeValues_.pop_back();
-  DEBUG_ONLY(printScope("Symbols in after beginning new scope:"));
-}

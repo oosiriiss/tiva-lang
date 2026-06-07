@@ -163,8 +163,10 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
                let->varName, let->rhs->resolvedType, let->resolvedType);
 }
 
-void SemanticAnalysisVisitor::visit(CastNode * /*cast*/) {
-  logzy::warn("Renalyzing ImplicitCastNode");
+void SemanticAnalysisVisitor::visit(CastNode *cast) {
+  logzy::trace("Semantic check of cast node");
+  dispatch(cast->operand.get());
+  cast->resolvedType = cast->targetType;
 }
 
 void SemanticAnalysisVisitor::visit(FunctionPrototype *proto) {

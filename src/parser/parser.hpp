@@ -21,6 +21,7 @@ class Parser {
       -> std::unique_ptr<FunctionPrototype>;
   [[nodiscard]] auto parseFunction() -> std::unique_ptr<Function>;
 
+  [[nodiscard]] auto parsePostfixExpression() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseExpression() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseBinaryExpressionRhs(int expressionPrecedence,
                                               std::unique_ptr<AstNode> lhs)
@@ -32,8 +33,7 @@ class Parser {
   [[nodiscard]] auto parseIfElse() -> std::unique_ptr<IfElseAstNode>;
   [[nodiscard]] auto parseLet() -> std::unique_ptr<LetAstNode>;
 
-  [[nodiscard]] auto parseGlobalDeclaration()
-      -> std::unique_ptr<AstNode>;
+  [[nodiscard]] auto parseGlobalDeclaration() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseTranslationUnit()
       -> std::unique_ptr<TranslationUnitAstNode>;
 

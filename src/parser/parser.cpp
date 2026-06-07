@@ -237,10 +237,42 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   return std::make_unique<Function>(std::move(prototype), std::move(body));
 }
 
+[[nodiscard]] auto Parser::parsePostfixExpression()
+    -> std::unique_ptr<AstNode> {
+  logzy::trace("Parsing postfix expression");
+
+  std::unique_ptr<AstNode> expression = parsePrimary();
+  if (expression == nullptr) {
+    logzy::error("No postfix expression lhs");
+    return nullptr;
+  }
+
+  while (true) {
+    if (currentToken_.type == TokenType::As) {
+      logzy::trace("postfix expression is cast");
+      nextToken();
+
+      expectToken(TokenType::Identifier);
+
+      auto type = fromString(currentToken_.value);
+      if (type == TivaType::Unknown) {
+        logzy::error("Invalid type during cast: '{}'", currentToken_.value);
+        return nullptr;
+      }
+
+      expression = std::make_unique<CastNode>(std::move(expression), type);
+      nextToken();
+    } else {
+      return expression;
+    }
+  }
+}
+
 [[nodiscard]] auto Parser::parseExpression() -> std::unique_ptr<AstNode> {
   logzy::trace("Parsing expression's left side");
-  auto lhs = parsePrimary();
+  auto lhs = parsePostfixExpression();
   if (lhs == nullptr) {
+    logzy::error("Couldn't parse expression. No left hand side");
     return lhs;
   }
 
@@ -257,6 +289,7 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
     return std::make_unique<AssignmentAstNode>(std::move(lhs), std::move(rhs));
   }
+
   auto rhs = parseBinaryExpressionRhs(0, std::move(lhs));
   logzy::trace("right side parsed");
   return rhs;
@@ -276,7 +309,7 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
     TokenType binOp = currentToken_.type;
     nextToken();
 
-    auto rhs = parsePrimary();
+    auto rhs = parsePostfixExpression();
     if (rhs == nullptr) {
       return nullptr;
     }

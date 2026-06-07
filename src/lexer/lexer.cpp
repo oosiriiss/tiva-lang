@@ -74,6 +74,8 @@ auto Lexer::nextToken() -> Token {
     type = TokenType::Let;
   } else if (identifierString == "true" || identifierString == "false") {
     type = TokenType::Boolean;
+  } else if (identifierString == "as") {
+    type = TokenType::As;
   } else {
     logzy::trace("unknown keyword '{}'", identifierString);
     return std::nullopt;

@@ -1,5 +1,10 @@
 fn main(a:i32,b:float,c:i32) -> i32 {
-   (5.7) + (5.7)
-
+   if(a) {
+      0
+   } else if (c) {
+      1
+   }else {
+      2
+   }
 }
 

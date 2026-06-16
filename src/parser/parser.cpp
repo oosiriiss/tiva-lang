@@ -12,6 +12,7 @@
 #include "debug.hpp"
 #include "lexer/token.hpp"
 #include "logzy/logzy.hpp"
+#include "parser/ast_nodes.hpp"
 #include "semantic/types.hpp"
 
 namespace {
@@ -364,29 +365,44 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   logzy::trace("Parsing if else");
   nextToken();  // Consuming if
 
-  auto condition = parseExpression();
-  if (condition == nullptr) {
-    logzy::error("Couldn't parse if condition expression");
-    return nullptr;
+  std::vector<IfSegment> ifElses;
+  std::unique_ptr<AstNode> elseBody = nullptr;
+
+  while (true) {
+    IfSegment segment;
+
+    segment.condition = parseExpression();
+    if (segment.condition == nullptr) {
+      logzy::error("Couldn't parse if condition expression");
+      return nullptr;
+    }
+    segment.body = parseExpression();
+    if (segment.body == nullptr) {
+      logzy::error("Couldn't parse if's ifBlock expression");
+      return nullptr;
+    }
+    ifElses.emplace_back(std::move(segment));
+
+    if (currentToken_.type == TokenType::Else) {
+      nextToken();
+      if (currentToken_.type == TokenType::If) {
+        nextToken();
+        // Else if
+        continue;
+      }
+
+      elseBody = parseExpression();
+
+      if (elseBody == nullptr) {
+        logzy::error("Couldn't parse if's elseBlock expression");
+        return nullptr;
+      }
+    }
+    break;
   }
 
-  auto ifBlock = parseExpression();
-  if (ifBlock == nullptr) {
-    logzy::error("Couldn't parse if's ifBlock expression");
-    return nullptr;
-  }
-
-  expectToken(TokenType::Else);
-  nextToken();
-
-  auto elseBlock = parseExpression();
-  if (elseBlock == nullptr) {
-    logzy::error("Couldn't parse if's elseBlock expression");
-    return nullptr;
-  }
-
-  return std::make_unique<IfElseAstNode>(
-      std::move(condition), std::move(ifBlock), std::move(elseBlock));
+  return std::make_unique<IfElseAstNode>(std::move(ifElses),
+                                         std::move(elseBody));
 }
 
 [[nodiscard]] auto Parser::parseLet() -> std::unique_ptr<LetAstNode> {

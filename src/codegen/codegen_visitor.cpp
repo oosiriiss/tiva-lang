@@ -3,6 +3,7 @@
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/APSInt.h>
+#include <llvm/ADT/STLForwardCompat.h>
 #include <llvm/Analysis/CGSCCPassManager.h>
 #include <llvm/Analysis/LoopAnalysisManager.h>
 #include <llvm/IR/BasicBlock.h>
@@ -37,6 +38,7 @@
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 
 #include <logzy/logzy.hpp>
+#include <system_error>
 
 #include "codegen/module.hpp"
 #include "llvm/IR/IRBuilder.h"
@@ -263,75 +265,120 @@ void CodeGenVisitor::visit(BlockAstNode *block) {
 
   // ReturnValue set while evaluating expressions
 }
+
+namespace {
+  struct PhiValue {
+    llvm::Value *value;
+    llvm::BasicBlock *block;
+  };
+}  // namespace
+
 void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
-  std::unique_ptr<AstNode> &condition = ifElse->condition;
-  std::unique_ptr<AstNode> &ifBody = ifElse->ifBody;
-  std::unique_ptr<AstNode> &elseBody = ifElse->elseBody;
-
-  logzy::debug("Generating code for ifelse expression");
-  auto *conditonValue = generate(condition);
-  if (!condition) {
-    logzy::error("Coulndt genreate code for the conditon");
-    ReturnValue = nullptr;
-    return;
-  }
-
-  conditonValue = state_->builder.CreateICmpNE(
-      conditonValue,
-      llvm::ConstantInt::get(state_->context,
-                             llvm::APInt(typing::INT_BITS, 0, true)));
+  // clang-format off
+  // TODO :: Refactor if/elseif/else node, so that it treats "if else if" recursively like: 
+  // if(A) {
+  // } else {
+  // 	if(B) {
+  //
+  // 	}
+  // }
+  // clang-format on
+  logzy::debug("Generating code for if/elseif/else expression");
 
   llvm::Function *parentFunc = state_->builder.GetInsertBlock()->getParent();
+  llvm::BasicBlock *mergeBlock =
+      llvm::BasicBlock::Create(state_->context, "ifMergeBlock");
 
-  llvm::BasicBlock *ifBlock =
-      llvm::BasicBlock::Create(state_->context, "if", parentFunc);
+  std::vector<PhiValue> phiValues;
 
-  llvm::BasicBlock *elseBlock = llvm::BasicBlock::Create(
-      state_->context, "else");  // Not yet inserted to the function
+  for (size_t i = 0; i < ifElse->branches.size(); ++i) {
+    logzy::trace("Generating code for branch[{}] condition", i);
+    auto &branch = ifElse->branches.at(i);
+    auto *conditionValue = generate(branch.condition);
+    if (conditionValue == nullptr) {
+      logzy::error("Couldn't generate code for condition[{}]", i);
+      ReturnValue = nullptr;
+      return;
+    }
 
-  llvm::BasicBlock *mergeBlock = llvm::BasicBlock::Create(
-      state_->context, "ifMerge");  // Not yet inserted to the function
+    // TODO :: For now integer condition automatically converts to int. make
+    // sure ther condition is bool LATER.
 
-  state_->builder.CreateCondBr(conditonValue, ifBlock, elseBlock);
+    logzy::trace(
+        "Converting condition of type '{}' to boolean by comparing it to 0",
+        branch.condition->resolvedType);
+    conditionValue = state_->builder.CreateICmpNE(
+        conditionValue,
+        llvm::ConstantInt::get(state_->context,
+                               llvm::APInt(typing::INT_BITS, 0, true)));
 
-  state_->builder.SetInsertPoint(ifBlock);
-  //
-  auto *ifBodyValue = generate(ifBody);
-  if (ifBodyValue == nullptr) {
-    logzy::error("Couldn't generate code for if body");
-    ReturnValue = nullptr;
-    return;
+    llvm::BasicBlock *bodyBlock =
+        llvm::BasicBlock::Create(state_->context, "ifBranchBody", parentFunc);
+    llvm::BasicBlock *nextConditionBlock =
+        llvm::BasicBlock::Create(state_->context, "ifNextCondition");
+
+    state_->builder.CreateCondBr(conditionValue, bodyBlock, nextConditionBlock);
+    logzy::trace("Generating code for branch[{}]", i);
+    // Generating the body
+    state_->builder.SetInsertPoint(bodyBlock);
+    auto *bodyValue = generate(branch.body);
+    if (bodyValue == nullptr) {
+      logzy::error("Couldn't generate code for branch body [{}]", i);
+      ReturnValue = nullptr;
+      return;
+    }
+
+    // Branching to merge block
+    state_->builder.CreateBr(mergeBlock);
+
+    phiValues.emplace_back(PhiValue{.value = bodyValue,
+                                    .block = state_->builder.GetInsertBlock()});
+
+    parentFunc->insert(parentFunc->end(), nextConditionBlock);
+    state_->builder.SetInsertPoint(nextConditionBlock);
   }
-  state_->builder.CreateBr(mergeBlock);  // Branches' "return" block
 
-  // codegen for body may change the block, restoringi t
-  state_->builder.SetInsertPoint(ifBlock);
+  if (ifElse->elseBody != nullptr) {
+    logzy::trace("Else block, found, if can be an expression");
+    auto *elseValue = generate(ifElse->elseBody);
+    if (elseValue == nullptr) {
+      logzy::error("Couldn't generate value for the else body");
+      ReturnValue = nullptr;
+      return;
+    }
+    state_->builder.CreateBr(mergeBlock);
+    phiValues.emplace_back(PhiValue{.value = elseValue,
+                                    .block = state_->builder.GetInsertBlock()});
+  } else {
+    logzy::trace(
+        "No else block, if cannot be an expression, cleraing phi values");
+    state_->builder.CreateBr(mergeBlock);
 
-  parentFunc->insert(parentFunc->end(), elseBlock);
-  state_->builder.SetInsertPoint(elseBlock);
-  //
-  auto *elseBodyValue = generate(elseBody);
-  if (elseBodyValue == nullptr) {
-    logzy::error("Couldn't generate code for if body");
-    ReturnValue = nullptr;
-    return;
+    // No else block, so it doesn't return a value, clearing phi values
+    phiValues.clear();
   }
-  state_->builder.CreateBr(mergeBlock);  // Branches' "return" block
-
-  // codegen for body may change the block, restoringi t
-  state_->builder.SetInsertPoint(elseBlock);
-
-  // Merge block
   parentFunc->insert(parentFunc->end(), mergeBlock);
   state_->builder.SetInsertPoint(mergeBlock);
 
-  llvm::PHINode *phi = state_->builder.CreatePHI(
-      llvm::Type::getInt32Ty(state_->context), 2, "ifResult");
+  if (phiValues.empty()) {
+    // Most likely not all branches return value
+    logzy::trace("If is not an expression");
+    ReturnValue = nullptr;
+    return;
+  }
 
-  phi->addIncoming(ifBodyValue, ifBlock);
-  phi->addIncoming(elseBodyValue, elseBlock);
+  logzy::trace("If is an expression.");
+  llvm::PHINode *phi =
+      state_->builder.CreatePHI(toLlvm(state_->context, ifElse->resolvedType),
+                                phiValues.size(), "ifResult");
 
+  for (const auto &phiValue : phiValues) {
+    phi->addIncoming(phiValue.value, phiValue.block);
+  }
   ReturnValue = phi;
+  logzy::trace(
+      "Generated code for if/elseif/else with {} branches and  else block",
+      ifElse->branches.size(), (ifElse->elseBody == nullptr) ? "no" : "an");
 }
 
 void CodeGenVisitor::visit(LetAstNode *let) {
@@ -339,7 +386,6 @@ void CodeGenVisitor::visit(LetAstNode *let) {
   std::string_view varName = let->varName;
   std::unique_ptr<AstNode> &rhs = let->rhs;
 
-  // TODO :: Unnecessary cast to string, make scopeValues comparator transparent
   if (scopes_.findVariable(varName).has_value()) {
     logzy::error(
         "There already exists a variable with name {} in current scope.",

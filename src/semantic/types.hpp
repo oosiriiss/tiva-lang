@@ -18,9 +18,9 @@ enum class TivaType : std::uint8_t {
   Int,
   Float,
   Boolean,
+  Void,
   Unknown,
 };
-
 
 [[nodiscard]] auto toLlvm(llvm::LLVMContext& ctx, TivaType type) -> llvm::Type*;
 
@@ -65,6 +65,7 @@ struct std::formatter<TivaType> : std::formatter<std::string_view> {
       TYPE_FORMAT(Int);
       TYPE_FORMAT(Float);
       TYPE_FORMAT(Boolean);
+      TYPE_FORMAT(Void);
 
       case TivaType::Unknown:
         throw std::invalid_argument(std::format(

@@ -1,5 +1,7 @@
 #include "semantic_visitor.hpp"
 
+#include <cstddef>
+
 #include "debug.hpp"
 #include "logzy/logzy.hpp"
 #include "parser/ast_nodes.hpp"
@@ -126,25 +128,43 @@ void SemanticAnalysisVisitor::visit(BlockAstNode *block) {
 }
 void SemanticAnalysisVisitor::visit(IfElseAstNode *ifElse) {
   logzy::trace("Semantic check of IfElseAstNode");
-  dispatch(ifElse->condition.get());
-  dispatch(ifElse->ifBody.get());
-  dispatch(ifElse->elseBody.get());
 
+  for (auto &segment : ifElse->branches) {
+    dispatch(segment.condition.get());
+    dispatch(segment.body.get());
+  }
+  if (ifElse->elseBody != nullptr) {
+    dispatch(ifElse->elseBody.get());
+  }
+
+  // TODO :: Check that all paths return the same type
   // TODO :: convert condition to bool
 
-  auto conditonType = ifElse->condition->resolvedType;
-  auto ifBodyType = ifElse->ifBody->resolvedType;
-  auto elseBodyType = ifElse->elseBody->resolvedType;
+  // Deducing type from the first if branch.
+  ifElse->resolvedType = ifElse->branches[0].body->resolvedType;
 
-  if (ifBodyType != elseBodyType) {
-    logzy::error("if else types do not match. (int({}) vs int({}))", ifBodyType,
-                 elseBodyType);
-    return;
+  // No else block, expression returns void
+  if (ifElse->elseBody == nullptr) {
+    ifElse->resolvedType = TivaType::Void;
   }
-  ifElse->resolvedType = ifBodyType;
 
-  logzy::trace("if else's types evaluated to: if(cond:{}) {} else {}",
-               conditonType, ifBodyType, elseBodyType);
+  logzy::trace("if/elseif/else block evaluated to: {}. Has else block?: {}",
+               ifElse->resolvedType,
+               (ifElse->elseBody == nullptr) ? "no" : "yes");
+
+  for (size_t i = 0; i < ifElse->branches.size(); ++i) {
+    auto &segment = ifElse->branches[i];
+    logzy::trace("Branch {}, condition: '{}', resolved type: '{}'", i,
+                 segment.condition->resolvedType, segment.body->resolvedType);
+  }
+
+  if (ifElse->elseBody != nullptr) {
+    logzy::trace("Else branch resolved type: '{}'",
+                 ifElse->elseBody->resolvedType);
+  } else {
+    logzy::trace("No else branch");
+  }
+  logzy::trace("If/elseif/else checked");
 }
 void SemanticAnalysisVisitor::visit(LetAstNode *let) {
   logzy::trace("Semantic check of LetAstNode");

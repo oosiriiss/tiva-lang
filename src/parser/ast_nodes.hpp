@@ -126,19 +126,24 @@ struct BlockAstNode : public AstNode {
   std::vector<std::unique_ptr<AstNode>> expressions;
 };
 
+struct IfSegment {
+  std::unique_ptr<AstNode> condition;
+  std::unique_ptr<AstNode> body;
+};
+
 struct IfElseAstNode : public AstNode {
  public:
-  constexpr IfElseAstNode(std::unique_ptr<AstNode> condition,
-                          std::unique_ptr<AstNode> ifBlock,
+  constexpr IfElseAstNode(std::vector<IfSegment> &&branches,
                           std::unique_ptr<AstNode> elseBlock)
-      : condition{std::move(condition)},
-        ifBody{std::move(ifBlock)},
+      : branches{std::move(branches)},
         elseBody{std::move(elseBlock)} {}
   void accept(AstNodeVisitor *visitor) override;
 
  public:
-  std::unique_ptr<AstNode> condition;
-  std::unique_ptr<AstNode> ifBody;
+  /**
+   *  All If / else if blocks
+   */
+  std::vector<IfSegment> branches;
   std::unique_ptr<AstNode> elseBody;
 };
 

@@ -13,7 +13,12 @@ FetchContent_Declare(
    GIT_REPOSITORY https://github.com/oosiriiss/logzy
    GIT_TAG 075928d08bc97f05d10e1d4def802e2bf0792fc4 # 0.1.1
 )
-FetchContent_MakeAvailable(logzy)
+FetchContent_Declare(
+   cppli
+   GIT_REPOSITORY https://github.com/oosiriiss/cppli
+   GIT_TAG c54463d5987ca076543db42adb5902d5d6901a2e # 0.2.3
+)
+FetchContent_MakeAvailable(logzy cppli)
 
 # Compiler library
 add_library(
@@ -87,7 +92,7 @@ else()
 endif()
 
 
-target_link_libraries(tiva-compiler-lib PUBLIC ${LLVM_LIBRARIES} logzy::logzy)
+target_link_libraries(tiva-compiler-lib PUBLIC ${LLVM_LIBRARIES} logzy::logzy cppli::cppli)
 
 message(STATUS "LLVM libs: ${LLVM_LIBRARIES}")
 

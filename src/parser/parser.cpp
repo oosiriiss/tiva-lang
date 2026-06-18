@@ -2,7 +2,6 @@
 
 #include <llvm/IR/Intrinsics.h>
 
-#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -31,19 +30,27 @@ namespace {
       case TokenType::Assign:
         return Precedence::Assignment;
       case TokenType::Plus:
+        [[fallthrough]];
       case TokenType::Minus:
         return Precedence::Term;
       case TokenType::Multiply:
+        [[fallthrough]];
       case TokenType::Divide:
         return Precedence::Factor;
       default:
         return Precedence::None;
     }
   }
+
+  // Checks if a number lexeme is a floating point number.
+  constexpr auto isFloatNumber(std::string_view lexeme) -> bool {
+    return lexeme.contains('.');
+  }
+
 }  // namespace
 
 [[nodiscard]] auto Parser::parsePrimary() -> std::unique_ptr<AstNode> {
-  switch (currentToken_.type) {
+  switch (lexemeType()) {
     case TokenType::Identifier:
       return parseIdentifier();
     case TokenType::Number:
@@ -67,15 +74,15 @@ namespace {
 
 [[nodiscard]]
 auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
-  expectToken(TokenType::Number);
-  logzy::trace("Parsing number '{}'", currentToken_.value);
+  logzy::trace("Parsing number '{}'", lexeme());
+  ensure(TokenType::Number);
 
   std::unique_ptr<AstNode> result;
 
-  if (currentToken_.value.contains('.')) {
-    result = std::make_unique<FloatAstNode>(currentToken_.value);
+  if (isFloatNumber(lexeme())) {
+    result = std::make_unique<FloatAstNode>(lexeme());
   } else {
-    result = std::make_unique<IntegerAstNode>(currentToken_.value);
+    result = std::make_unique<IntegerAstNode>(lexeme());
   }
 
   nextToken();
@@ -83,16 +90,16 @@ auto Parser::parseNumber() -> std::unique_ptr<AstNode> {
 }
 
 auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
-  expectToken(TokenType::Boolean);
-  logzy::trace("Parsing boolean'{}'", currentToken_.value);
+  logzy::trace("Parsing boolean'{}'", lexeme());
+  ensure(TokenType::Boolean);
 
   std::unique_ptr<BooleanAstNode> result;
 
-  if (currentToken_.value == "true") {
+  if (lexeme() == "true") {
     result = std::make_unique<BooleanAstNode>(true);
   }
 
-  if (currentToken_.value == "false") {
+  if (lexeme() == "false") {
     result = std::make_unique<BooleanAstNode>(false);
   }
 
@@ -146,75 +153,61 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
 [[nodiscard]] auto Parser::parseParentheses() -> std::unique_ptr<AstNode> {
   logzy::trace("Parsing parentheses");
-  expectToken(TokenType::ParenBegin);
-  nextToken();
+  expect(TokenType::ParenBegin);
   auto expr = parseExpression();
   if (expr == nullptr) {
     return expr;
   }
-  // assertion for simplicity for now
-  expectToken(TokenType::ParenEnd);
-  nextToken();
-
+  expect(TokenType::ParenEnd);
   return expr;
 }
 
 [[nodiscard]] auto Parser::parseFunctionPrototype()
     -> std::unique_ptr<FunctionPrototype> {
-  expectToken(TokenType::Identifier);
-  std::string_view functionName = currentToken_.value;
-  nextToken();
-  expectToken(TokenType::ParenBegin);
+  logzy::trace("Parsing function prototype");
+  std::string_view functionName = expect(TokenType::Identifier).value;
+  logzy::trace("Function is: '{}'", functionName);
+  expect(TokenType::ParenBegin);
 
   std::vector<Parameter> params;
-  nextToken();
-  while (currentToken_.type != TokenType::ParenEnd) {
-    std::string name{currentToken_.value};
-    nextToken();
+  while (true) {
+    std::string_view name = expect(TokenType::Identifier).value;
+    expect(TokenType::Colon);
+    std::string_view typeString = expect(TokenType::Identifier).value;
 
-    expectToken(TokenType::Colon);
-    nextToken();
-    expectToken(TokenType::Identifier);
-    TivaType declaredType = fromString(currentToken_.value);
+    TivaType declaredType = fromString(typeString);
     if (declaredType == TivaType::Unknown) {
-      logzy::error("Expected parameter's type, but got: '{}'",
-                   currentToken_.value);
+      logzy::error("Expected parameter's type, but got: '{}'", lexeme());
       return nullptr;
     }
-    nextToken();
 
-    params.emplace_back(std::move(name), declaredType);
+    params.emplace_back(std::string(name), declaredType);
 
-    if (currentToken_.type == TokenType::Comma) {
-      nextToken();
+    if (match(',')) {
       continue;
     }
 
-    if (currentToken_.type != TokenType::ParenEnd) {
-      logzy::error("Expected function's prototype closing parenthesis");
-      return nullptr;
+    if (match(')')) {
+      break;
     }
-  }
 
-  expectToken(TokenType::ParenEnd);
-  nextToken();
+    logzy::error("Expected function's prototype closing parenthesis");
+    return nullptr;
+  }
 
   TivaType returnType = TivaType::Unknown;
 
   // Optional return type
-  if (currentToken_.type == TokenType::Arrow) {
-    nextToken();
-    expectToken(TokenType::Identifier);
-    returnType = fromString(currentToken_.value);
-    nextToken();
+  if (match(TokenType::Arrow)) {
+    auto returnTypeString = expect(TokenType::Identifier).value;
+    returnType = fromString(returnTypeString);
   }
 
   return std::make_unique<FunctionPrototype>(functionName, std::move(params),
                                              returnType);
 }
 [[nodiscard]] auto Parser::parseFunction() -> std::unique_ptr<Function> {
-  expectToken(TokenType::Function);
-  nextToken();
+  expect(TokenType::Function);
 
   auto prototype = parseFunctionPrototype();
   if (prototype == nullptr) {
@@ -223,12 +216,12 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
   std::unique_ptr<AstNode> body = nullptr;
 
-  if (currentToken_.type == TokenType::ParenBegin) {
+  if (peek('(')) {
     body = parseExpression();
     if (body == nullptr) {
       return nullptr;
     }
-  } else if (currentToken_.type == TokenType::CurlyBegin) {
+  } else if (peek('{')) {
     body = parseBlock();
     if (body == nullptr) {
       return nullptr;
@@ -263,6 +256,9 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
       expression = std::make_unique<CastNode>(std::move(expression), type);
       nextToken();
+    if (peek('(')) {
+      expression = parseCall(std::move(expression));
+    }
     } else {
       return expression;
     }
@@ -278,7 +274,7 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   }
 
   logzy::trace("Parsing expression's right side");
-  if (currentToken_.type == TokenType::Assign) {
+  if (match(TokenType::Assign)) {
     logzy::trace("Expression is an assignment");
     nextToken();
 
@@ -300,26 +296,25 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
     int expressionPrecedence, std::unique_ptr<AstNode> lhs)
     -> std::unique_ptr<AstNode> {
   while (true) {
-    PrecedenceType tokenPrecedence = getPrecedence(currentToken_.type);
+    PrecedenceType tokenPrecedence = getPrecedence(lexemeType());
 
     // Checking if it is a binary operator
     if (tokenPrecedence < expressionPrecedence) {
       return lhs;
     }
 
-    TokenType binOp = currentToken_.type;
-    nextToken();
+    TokenType binOp = nextToken().type;
 
     auto rhs = parsePostfixExpression();
     if (rhs == nullptr) {
       return nullptr;
     }
 
-    PrecedenceType nextPrecedence = getPrecedence(currentToken_.type);
+    PrecedenceType nextPrecedence = getPrecedence(lexemeType());
     if (tokenPrecedence < nextPrecedence) {
       logzy::trace(
           "next operator has higher precedence curr: {}={} vs next: {}={}",
-          binOp, tokenPrecedence, currentToken_.type, nextPrecedence);
+          binOp, tokenPrecedence, lexemeType(), nextPrecedence);
 
       rhs = parseBinaryExpressionRhs(tokenPrecedence + 1, std::move(rhs));
       if (rhs == nullptr) {
@@ -335,11 +330,10 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 [[nodiscard]] auto Parser::parseBlock(std::optional<std::string_view> blockName)
     -> std::unique_ptr<BlockAstNode> {
   logzy::debug("Parsing block");
-  expectToken(TokenType::CurlyBegin);
-  nextToken();
+  expect(TokenType::CurlyBegin);
 
   std::vector<std::unique_ptr<AstNode>> expressions;
-  while (currentToken_.type != TokenType::CurlyEnd) {
+  while (!match('}')) {
     if (auto expr = parseExpression()) {
       expressions.emplace_back(std::move(expr));
     } else {
@@ -349,9 +343,6 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   }
 
   logzy::trace("Block has {} expressions", expressions.size());
-
-  // Skippingthe last '}'
-  nextToken();
 
   static std::uint32_t BlockCounter{0};
   return std::make_unique<BlockAstNode>(
@@ -363,30 +354,28 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
 [[nodiscard]] auto Parser::parseIfElse() -> std::unique_ptr<IfElseAstNode> {
   logzy::trace("Parsing if else");
-  nextToken();  // Consuming if
+  expect(TokenType::If);
 
-  std::vector<IfSegment> ifElses;
+  std::vector<IfBranch> branches;
   std::unique_ptr<AstNode> elseBody = nullptr;
 
   while (true) {
-    IfSegment segment;
+    IfBranch branch;
 
-    segment.condition = parseExpression();
-    if (segment.condition == nullptr) {
+    branch.condition = parseExpression();
+    if (branch.condition == nullptr) {
       logzy::error("Couldn't parse if condition expression");
       return nullptr;
     }
-    segment.body = parseExpression();
-    if (segment.body == nullptr) {
+    branch.body = parseExpression();
+    if (branch.body == nullptr) {
       logzy::error("Couldn't parse if's ifBlock expression");
       return nullptr;
     }
-    ifElses.emplace_back(std::move(segment));
+    branches.emplace_back(std::move(branch));
 
-    if (currentToken_.type == TokenType::Else) {
-      nextToken();
-      if (currentToken_.type == TokenType::If) {
-        nextToken();
+    if (match(TokenType::Else)) {
+      if (match(TokenType::If)) {
         // Else if
         continue;
       }
@@ -401,36 +390,30 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
     break;
   }
 
-  return std::make_unique<IfElseAstNode>(std::move(ifElses),
+  return std::make_unique<IfElseAstNode>(std::move(branches),
                                          std::move(elseBody));
 }
 
 [[nodiscard]] auto Parser::parseLet() -> std::unique_ptr<LetAstNode> {
-  expectToken(TokenType::Let);
-  nextToken();
-
-  expectToken(TokenType::Identifier);
-  std::string_view varName = currentToken_.value;
-  nextToken();
+  expect(TokenType::Let);
+  std::string_view varName = expect(TokenType::Identifier).value;
 
   TivaType declaredType = TivaType::Unknown;
 
   // Type declaration
-  if (currentToken_.type == TokenType::Colon) {
-    nextToken();
-    expectToken(TokenType::Identifier);  // Declared type
+  if (match(':')) {
+    auto variableTypeString = expect(TokenType::Identifier).value;
     // TODO :: Detect invalid types
-    declaredType = fromString(currentToken_.value);
+    declaredType = fromString(variableTypeString);
     if (declaredType == TivaType::Unknown) {
       logzy::error("Invalid type variable '{}' has an unknown type '{}'",
-                   varName, currentToken_.value);
+                   varName, lexeme());
       return nullptr;
     }
     nextToken();
   }
 
-  expectToken(TokenType::Assign);
-  nextToken();
+  expect(TokenType::Assign);
 
   auto rhs = parseExpression();
   if (rhs == nullptr) {
@@ -443,12 +426,12 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
 [[nodiscard]] auto Parser::parseGlobalDeclaration()
     -> std::unique_ptr<AstNode> {
-  if (currentToken_.type == TokenType::Function) {
+  if (peek(TokenType::Function)) {
     return parseFunction();
   }
 
   logzy::error("Couldn't parse global declaration starting with token: {}",
-               currentToken_.type);
+               lexemeType());
   return nullptr;
 }
 
@@ -456,7 +439,7 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
     -> std::unique_ptr<TranslationUnitAstNode> {
   std::vector<std::unique_ptr<AstNode>> globalDeclarations;
 
-  while (currentToken_.type != TokenType::Eof) {
+  while (!peek(TokenType::Eof)) {
     auto declaration = parseGlobalDeclaration();
     if (declaration == nullptr) {
       logzy::error("Couldn't parse global declaration");
@@ -469,9 +452,19 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
       std::move(globalDeclarations));
 }
 
-void Parser::expectToken(TokenType type) const {
-  if (currentToken_.type != type) {
-    throw std::logic_error(std::format("Expected token '{}' but received '{}'",
-                                       type, currentToken_));
+[[nodiscard]] auto Parser::parseCast(std::unique_ptr<AstNode> castExpression)
+    -> std::unique_ptr<CastAstNode> {
+  logzy::trace("Parsing cast");
+  expect(TokenType::As);
+  auto typeString = expect(TokenType::Identifier).value;
+
+  auto type = fromString(typeString);
+  if (type == TivaType::Unknown) {
+    logzy::error("Invalid type during cast: '{}'", lexeme());
+    return nullptr;
   }
+
+  auto castNode =
+      std::make_unique<CastAstNode>(std::move(castExpression), type);
+  return castNode;
 }

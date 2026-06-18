@@ -126,14 +126,14 @@ struct BlockAstNode : public AstNode {
   std::vector<std::unique_ptr<AstNode>> expressions;
 };
 
-struct IfSegment {
+struct IfBranch {
   std::unique_ptr<AstNode> condition;
   std::unique_ptr<AstNode> body;
 };
 
 struct IfElseAstNode : public AstNode {
  public:
-  constexpr IfElseAstNode(std::vector<IfSegment> &&branches,
+  constexpr IfElseAstNode(std::vector<IfBranch> &&branches,
                           std::unique_ptr<AstNode> elseBlock)
       : branches{std::move(branches)},
         elseBody{std::move(elseBlock)} {}
@@ -143,7 +143,7 @@ struct IfElseAstNode : public AstNode {
   /**
    *  All If / else if blocks
    */
-  std::vector<IfSegment> branches;
+  std::vector<IfBranch> branches;
   std::unique_ptr<AstNode> elseBody;
 };
 
@@ -163,10 +163,10 @@ struct LetAstNode : public AstNode {
   TivaType declaredType;
 };
 
-struct CastNode : public AstNode {
+struct CastAstNode : public AstNode {
  public:
-  constexpr CastNode(std::unique_ptr<AstNode> operand,
-                     TivaType targetType) noexcept
+  constexpr CastAstNode(std::unique_ptr<AstNode> operand,
+                        TivaType targetType) noexcept
       : AstNode{targetType},
         operand{std::move(operand)},
         targetType{targetType} {}
@@ -238,7 +238,7 @@ struct AstNodeVisitor {
   virtual void visit(BlockAstNode *) = 0;
   virtual void visit(IfElseAstNode *) = 0;
   virtual void visit(LetAstNode *) = 0;
-  virtual void visit(CastNode *) = 0;
+  virtual void visit(CastAstNode *) = 0;
   virtual void visit(FunctionPrototype *) = 0;
   virtual void visit(Function *) = 0;
   virtual void visit(TranslationUnitAstNode *) = 0;
@@ -277,7 +277,9 @@ inline void LetAstNode::accept(AstNodeVisitor *visitor) {
 inline void FunctionPrototype::accept(AstNodeVisitor *visitor) {
   visitor->visit(this);
 }
-inline void CastNode::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
+inline void CastAstNode::accept(AstNodeVisitor *visitor) {
+  visitor->visit(this);
+}
 inline void Function::accept(AstNodeVisitor *visitor) { visitor->visit(this); }
 inline void TranslationUnitAstNode::accept(AstNodeVisitor *visitor) {
   visitor->visit(this);

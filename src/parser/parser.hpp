@@ -36,9 +36,39 @@ class Parser {
   [[nodiscard]] auto parseGlobalDeclaration() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseTranslationUnit()
       -> std::unique_ptr<TranslationUnitAstNode>;
+  [[nodiscard]] auto parseCast(std::unique_ptr<AstNode> castExpression)
+      -> std::unique_ptr<CastAstNode>;
 
-  constexpr void nextToken();
-  void expectToken(TokenType type) const;
+  // Returns the current token and processes the next one.
+  constexpr auto nextToken() -> Token;
+  // Returns the value of current token
+  constexpr auto lexeme() const noexcept -> std::string_view;
+  // Returns the type of current token
+  constexpr auto lexemeType() const noexcept -> TokenType;
+  // Asserts that the current token is of the argument type
+  constexpr auto expect(TokenType type) -> Token;
+  // Asserts that the current token is of the argument type, If it is, skips the
+  // token, if not nothing happens
+  constexpr void ensure(TokenType type) const;
+
+  // Checks if the current token is of the given type
+  [[nodiscard]] constexpr auto peek(TokenType type) const noexcept -> bool;
+
+  // Checks if the current token's value matches the argument value
+  [[nodiscard]] constexpr auto peek(std::string_view value) const noexcept
+      -> bool;
+
+  // Checks if the current token's value matches the argument value
+  [[nodiscard]] constexpr auto peek(char value) const noexcept -> bool;
+
+  // Checks if the current token is of the given type, if yes it consumes and
+  // skips it, else nothing happens
+  template <class T>
+  [[nodiscard]] constexpr auto match(T val) -> bool
+    requires requires {
+      { peek(val) } -> std::same_as<bool>;
+    };
+  ;
 
  private:
   Lexer lexer_;
@@ -46,4 +76,53 @@ class Parser {
   Token currentToken_;
 };
 
-constexpr void Parser::nextToken() { currentToken_ = lexer_.nextToken(); }
+constexpr auto Parser::nextToken() -> Token {
+  Token tok = currentToken_;
+  currentToken_ = lexer_.nextToken();
+  return tok;
+}
+constexpr auto Parser::lexeme() const noexcept -> std::string_view {
+  return currentToken_.value;
+}
+
+constexpr auto Parser::lexemeType() const noexcept -> TokenType {
+  return currentToken_.type;
+}
+
+constexpr auto Parser::expect(TokenType type) -> Token {
+  ensure(type);
+  return nextToken();
+}
+
+constexpr void Parser::ensure(TokenType type) const {
+  if (currentToken_.type != type) {
+    throw std::logic_error(std::format("Expected token '{}' but received '{}'",
+                                       type, currentToken_));
+  }
+}
+
+template <class T>
+[[nodiscard]] constexpr auto Parser::match(T val) -> bool
+  requires requires {
+    { peek(val) } -> std::same_as<bool>;
+  }
+{
+  bool doesMatch = peek(val);
+  if (doesMatch) {
+    nextToken();
+  }
+  return doesMatch;
+}
+
+constexpr auto Parser::peek(TokenType type) const noexcept -> bool {
+  return currentToken_.type == type;
+}
+
+constexpr auto Parser::peek(std::string_view value) const noexcept -> bool {
+  return currentToken_.value == value;
+}
+
+constexpr auto Parser::peek(char value) const noexcept -> bool {
+  return currentToken_.value.size() == 1 &&
+         currentToken_.value.starts_with(value);
+}

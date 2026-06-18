@@ -29,12 +29,12 @@ auto Lexer::nextToken() -> Token {
     source_.remove_prefix(tokenStringValue->length());
 
     if (auto keywordToken = parseKeyword(*tokenStringValue)) {
-      logzy::debug("Token is a keyword '{}'={}", *tokenStringValue,
+      logzy::trace("Token is a keyword '{}'={}", *tokenStringValue,
                    keywordToken->value);
       return *keywordToken;
     }
 
-    logzy::debug("Token is an identifier '{}'", *tokenStringValue);
+    logzy::trace("Token is an identifier '{}'", *tokenStringValue);
     return Token{
         .value = std::move(tokenStringValue).value(),
         .type = TokenType::Identifier,
@@ -43,13 +43,13 @@ auto Lexer::nextToken() -> Token {
 
   if (auto symbolToken = readSymbol()) {
     source_.remove_prefix(symbolToken->value.size());
-    logzy::debug("Token is a symbol '{}'", *symbolToken);
+    logzy::trace("Token is a symbol '{}'", *symbolToken);
     return *symbolToken;
   }
 
   if (auto numberToken = readNumber()) {
     source_.remove_prefix(numberToken->length());
-    logzy::debug("Token is a number '{}'", *numberToken);
+    logzy::trace("Token is a number '{}'", *numberToken);
     return Token{.value = std::move(numberToken).value(),
                  .type = TokenType::Number};
   }

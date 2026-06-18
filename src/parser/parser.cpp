@@ -310,10 +310,22 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   expect(TokenType::If);
 
   std::unique_ptr<AstNode> condition = parseExpression();
+  if (condition == nullptr) {
+    logzy::error("Couldn't parse if condition expression");
+    return nullptr;
+  }
   std::unique_ptr<AstNode> expression = parseExpression();
+  if (expression == nullptr) {
+    logzy::error("Couldn't parse if body expression");
+    return nullptr;
+  }
   std::unique_ptr<AstNode> elseBody = nullptr;
   if (match(TokenType::Else)) {
     elseBody = parseExpression();
+    if (elseBody == nullptr) {
+      logzy::error("Couldn't parse else body expression");
+      return nullptr;
+    }
   }
 
   return std::make_unique<IfElseAstNode>(

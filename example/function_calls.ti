@@ -1,11 +1,19 @@
 
 
+fn increment(a:i32) {
+   a + 1
+}
+
+fn addf(a:i32,b:i32) -> float {
+   (a + b) as float
+}
+
 fn add(a:i32,b:i32) -> i32 {
    a + b
 }
 
 
 fn main(a:i32,b:float,c:i32) -> i32 {
-   add(a,c)
+   ((add(a,c) + addf(a,b as float) as i32) as float) as i32
 }
 

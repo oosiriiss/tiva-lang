@@ -230,7 +230,6 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   logzy::trace("Parsing expression's right side");
   if (match(TokenType::Assign)) {
     logzy::trace("Expression is an assignment");
-    nextToken();
 
     std::unique_ptr<AstNode> rhs = parseExpression();
     if (rhs == nullptr) {

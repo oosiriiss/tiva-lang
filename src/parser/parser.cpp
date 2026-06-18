@@ -108,47 +108,9 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 }
 
 [[nodiscard]] auto Parser::parseIdentifier() -> std::unique_ptr<AstNode> {
-  logzy::trace("Parsing identifier '{}'", currentToken_.value);
-  std::string_view identifier = currentToken_.value;
-  expectToken(TokenType::Identifier);
-  nextToken();
-
-  // Normal ident
-  if (currentToken_.type != TokenType::ParenBegin) {
-    logzy::trace("Was a normal identifier");
-    return std::make_unique<VariableAstNode>(identifier);
-  }
-
-  expectToken(TokenType::ParenBegin);
-  nextToken();
-  // Call
-  logzy::trace("Identifier '{}' is a call", identifier);
-  std::vector<std::unique_ptr<AstNode>> args;
-
-  while (currentToken_.type != TokenType::ParenEnd) {
-    logzy::trace("Parsing argument");
-    if (auto arg = parseExpression()) {
-      args.emplace_back(std::move(arg));
-    } else {
-      return nullptr;
-    }
-
-    if (currentToken_.type != TokenType::Comma &&
-        currentToken_.type != TokenType::ParenEnd) {
-      logzy::error("Expected ',' or ')' in function '{}' arguments",
-                   identifier);
-      return nullptr;
-    }
-
-    if (currentToken_.type == TokenType::ParenEnd) {
-      break;
-    }
-    expectToken(TokenType::Comma);
-    nextToken();
-  }
-  expectToken(TokenType::ParenEnd);
-  nextToken();
-  return std::make_unique<CallAstNode>(identifier, std::move(args));
+  logzy::trace("Parsing identifier '{}'", lexeme());
+  ensure(TokenType::Identifier);
+  return std::make_unique<VariableAstNode>(nextToken().value);
 }
 
 [[nodiscard]] auto Parser::parseParentheses() -> std::unique_ptr<AstNode> {
@@ -242,23 +204,11 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   }
 
   while (true) {
-    if (currentToken_.type == TokenType::As) {
-      logzy::trace("postfix expression is cast");
-      nextToken();
-
-      expectToken(TokenType::Identifier);
-
-      auto type = fromString(currentToken_.value);
-      if (type == TivaType::Unknown) {
-        logzy::error("Invalid type during cast: '{}'", currentToken_.value);
-        return nullptr;
-      }
-
-      expression = std::make_unique<CastNode>(std::move(expression), type);
-      nextToken();
     if (peek('(')) {
       expression = parseCall(std::move(expression));
     }
+    if (peek(TokenType::As)) {
+      expression = parseCast(std::move(expression));
     } else {
       return expression;
     }
@@ -450,6 +400,37 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
   return std::make_unique<TranslationUnitAstNode>(
       std::move(globalDeclarations));
+}
+
+[[nodiscard]] auto Parser::parseCall(std::unique_ptr<AstNode> calledExpression)
+    -> std::unique_ptr<CallAstNode> {
+  logzy::trace("Parsing call");
+  expect(TokenType::ParenBegin);
+
+  std::vector<std::unique_ptr<AstNode>> args;
+
+  while (!match(')')) {
+    logzy::trace("Parsing argument");
+    if (auto arg = parseExpression()) {
+      args.emplace_back(std::move(arg));
+    } else {
+      return nullptr;
+    }
+
+    if (match(',')) {
+      continue;
+    }
+
+    if (match(')')) {
+      break;
+    }
+
+    logzy::error("Missing ',' or ')' in call arguments.");
+    return nullptr;
+  }
+
+  return std::make_unique<CallAstNode>(std::move(calledExpression),
+                                       std::move(args));
 }
 
 [[nodiscard]] auto Parser::parseCast(std::unique_ptr<AstNode> castExpression)

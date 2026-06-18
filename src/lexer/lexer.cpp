@@ -211,9 +211,7 @@ namespace {
   }
 
   return std::optional<Token>{
-      std::in_place_t{}, std::string_view{source_.data(), symbolChars}, type
-
-  };
+      std::in_place_t{}, std::string_view{source_.data(), symbolChars}, type };
 }
 
 void Lexer::skipWhitespace() noexcept {

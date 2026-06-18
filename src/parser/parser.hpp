@@ -36,6 +36,8 @@ class Parser {
   [[nodiscard]] auto parseGlobalDeclaration() -> std::unique_ptr<AstNode>;
   [[nodiscard]] auto parseTranslationUnit()
       -> std::unique_ptr<TranslationUnitAstNode>;
+  [[nodiscard]] auto parseCall(std::unique_ptr<AstNode> calledExpression)
+      -> std::unique_ptr<CallAstNode>;
   [[nodiscard]] auto parseCast(std::unique_ptr<AstNode> castExpression)
       -> std::unique_ptr<CastAstNode>;
 

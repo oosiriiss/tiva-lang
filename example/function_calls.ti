@@ -1,0 +1,11 @@
+
+
+fn add(a:i32,b:i32) -> i32 {
+   a + b
+}
+
+
+fn main(a:i32,b:float,c:i32) -> i32 {
+   add(a,c)
+}
+

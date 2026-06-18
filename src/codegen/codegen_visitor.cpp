@@ -38,13 +38,13 @@
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 
 #include <logzy/logzy.hpp>
-#include <system_error>
 
 #include "codegen/module.hpp"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "parser/ast_nodes.hpp"
 #include "semantic/types.hpp"
+#include "utility/utility.hpp"
 
 [[nodiscard]] auto CodeGenVisitor::generate(AstNode *node) -> llvm::Value * {
   ReturnValue = nullptr;
@@ -129,21 +129,29 @@ void CodeGenVisitor::visit(AssignmentAstNode *assignment) {
   ReturnValue = rhsValue;
 }
 void CodeGenVisitor::visit(CallAstNode *call) {
-  std::string &toCall = call->toCall;
+  auto variableNode = util::uniqueDynamicCast<VariableAstNode>(call->toCall);
+  if (variableNode == nullptr) {
+    logzy::error("Trying to call non-variable");
+    ReturnValue = nullptr;
+    return;
+  }
+
   std::vector<std::unique_ptr<AstNode>> &args = call->args;
 
-  logzy::trace("generating code for call to '{}' with args.count()={}", toCall,
-               args.size());
+  logzy::trace("generating code for call to '{}' with args.count()={}",
+               variableNode->name, args.size());
 
-  llvm::Function *functionToCall = state_->module->getFunction(toCall);
+  llvm::Function *functionToCall =
+      state_->module->getFunction(variableNode->name);
   if (functionToCall == nullptr) {
-    logzy::error("Trying to call undefined function '{}'", toCall);
+    logzy::error("Trying to call undefined function '{}'", variableNode->name);
     ReturnValue = nullptr;
     return;
   }
 
   if (functionToCall->arg_size() != args.size()) {
-    logzy::error("Invalid number of arguments to the function '{}'", toCall);
+    logzy::error("Invalid number of arguments to the function '{}'",
+                 variableNode->name);
     ReturnValue = nullptr;
     return;
   }
@@ -154,7 +162,7 @@ void CodeGenVisitor::visit(CallAstNode *call) {
     auto *argValue = generate(args[i]);
     if (argValue == nullptr) {
       logzy::debug("Couldnt generate code for arg[{}] of function {}", i,
-                   toCall);
+                   variableNode->name);
       ReturnValue = nullptr;
       return;
     }
@@ -416,7 +424,7 @@ void CodeGenVisitor::visit(LetAstNode *let) {
   ReturnValue = rhsValue;
 }
 
-void CodeGenVisitor::visit(CastNode *cast) {
+void CodeGenVisitor::visit(CastAstNode *cast) {
   logzy::trace("Generating code for CastNode");
   llvm::Value *operandValue = generate(cast->operand.get());
   if (operandValue == nullptr) {

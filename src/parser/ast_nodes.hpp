@@ -87,14 +87,14 @@ struct AssignmentAstNode : public AstNode {
 
 struct CallAstNode : public AstNode {
  public:
-  constexpr CallAstNode(std::string_view toCall,
+  constexpr CallAstNode(std::unique_ptr<AstNode> toCall,
                         std::vector<std::unique_ptr<AstNode>> &&args)
-      : toCall{toCall},
+      : toCall{std::move(toCall)},
         args{std::move(args)} {}
   void accept(AstNodeVisitor *visitor) override;
 
  public:
-  std::string toCall;
+  std::unique_ptr<AstNode> toCall;
   std::vector<std::unique_ptr<AstNode>> args;
 };
 

@@ -6,6 +6,7 @@
 #include "logzy/logzy.hpp"
 #include "parser/ast_nodes.hpp"
 #include "semantic/types.hpp"
+#include "utility/utility.hpp"
 
 void SemanticAnalysisVisitor::visit(IntegerAstNode *integer) {
   logzy::trace("Semantic check of IntegerAstNode");
@@ -53,6 +54,7 @@ void SemanticAnalysisVisitor::visit(AssignmentAstNode *assignment) {
       "Assignment of variabe '{}' of type '{}' to expression of type '{}'",
       variable->name, variable->resolvedType, assignment->rhs->resolvedType);
 }
+
 void SemanticAnalysisVisitor::visit(CallAstNode *call) {
   logzy::trace("Semantic check of CallAstNode");
 
@@ -60,9 +62,18 @@ void SemanticAnalysisVisitor::visit(CallAstNode *call) {
     dispatch(arg.get());
   }
 
-  auto sigIter = functionTable_.find(call->toCall);
+  // TODO :: Implement FindCallable function that will resolve the node into a
+  // callable name or something, for now only variables
+
+  auto variableNode = util::uniqueDynamicCast<VariableAstNode>(call->toCall);
+  if (variableNode == nullptr) {
+    logzy::error("Call node's left side is not callable");
+    return;
+  }
+
+  auto sigIter = functionTable_.find(variableNode->name);
   if (sigIter == functionTable_.end()) {
-    logzy::error("Trying to call undefined function '{}'", call->toCall);
+    logzy::error("Trying to call undefined function '{}'", variableNode->name);
     return;
   }
   auto &sig = sigIter->second;
@@ -70,7 +81,7 @@ void SemanticAnalysisVisitor::visit(CallAstNode *call) {
     logzy::error(
         "The number of arguments passed ({}) to function '{}'  doesnt match "
         "expected number ()",
-        call->args.size(), call->toCall, sig.parameters.size());
+        call->args.size(), variableNode->name, sig.parameters.size());
     return;
   }
   for (size_t i = 0; i < call->args.size(); ++i) {
@@ -80,14 +91,15 @@ void SemanticAnalysisVisitor::visit(CallAstNode *call) {
       logzy::error(
           "Argument {} (parameter={}) passed to function '{}' doesn't match "
           "declared type. expected={} actual={}",
-          i, param.name, call->toCall, param.declaredType, arg->resolvedType);
+          i, param.name, variableNode->name, param.declaredType,
+          arg->resolvedType);
       return;
     }
   }
 
   call->resolvedType = sig.returnType;
-  logzy::trace("Call to function '{}' resolved as type '{}'", call->toCall,
-               call->resolvedType);
+  logzy::trace("Call to function '{}' resolved as type '{}'",
+               variableNode->name, call->resolvedType);
 }
 void SemanticAnalysisVisitor::visit(BinaryExprAstNode *binExp) {
   logzy::trace("Semantic check of BinaryExprAstNode");
@@ -183,7 +195,7 @@ void SemanticAnalysisVisitor::visit(LetAstNode *let) {
                let->varName, let->rhs->resolvedType, let->resolvedType);
 }
 
-void SemanticAnalysisVisitor::visit(CastNode *cast) {
+void SemanticAnalysisVisitor::visit(CastAstNode *cast) {
   logzy::trace("Semantic check of cast node");
   dispatch(cast->operand.get());
   cast->resolvedType = cast->targetType;

@@ -20,7 +20,7 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
   void visit(BlockAstNode *block) override;
   void visit(IfElseAstNode *ifElse) override;
   void visit(LetAstNode *let) override;
-  void visit(CastNode *cast) override;
+  void visit(CastAstNode *cast) override;
   void visit(FunctionPrototype *proto) override;
   void visit(Function *func) override;
   void visit(TranslationUnitAstNode *unit) override;
@@ -40,5 +40,5 @@ class SemanticAnalysisVisitor : public AstNodeVisitor {
 
 constexpr void SemanticAnalysisVisitor::cast(std::unique_ptr<AstNode> &input,
                                              TivaType targetType) {
-  input = std::make_unique<CastNode>(std::move(input), targetType);
+  input = std::make_unique<CastAstNode>(std::move(input), targetType);
 }

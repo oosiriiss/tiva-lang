@@ -43,12 +43,16 @@ class Parser {
 
   // Returns the current token and processes the next one.
   constexpr auto nextToken() -> Token;
+
   // Returns the value of current token
   constexpr auto lexeme() const noexcept -> std::string_view;
+
   // Returns the type of current token
   constexpr auto lexemeType() const noexcept -> TokenType;
+
   // Asserts that the current token is of the argument type
   constexpr auto expect(TokenType type) -> Token;
+
   // Asserts that the current token is of the argument type, If it is, skips the
   // token, if not nothing happens
   constexpr void ensure(TokenType type) const;

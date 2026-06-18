@@ -133,15 +133,19 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
 
   std::vector<Parameter> params;
   while (true) {
+    logzy::trace("Parsing parameter");
     std::string_view name = expect(TokenType::Identifier).value;
+    logzy::trace("Parameter name: '{}'", name);
     expect(TokenType::Colon);
     std::string_view typeString = expect(TokenType::Identifier).value;
+      logzy::trace("Parameter's type string is: '{}'",typeString);
 
     TivaType declaredType = fromString(typeString);
     if (declaredType == TivaType::Unknown) {
       logzy::error("Expected parameter's type, but got: '{}'", lexeme());
       return nullptr;
     }
+    logzy::trace("Parameter type: '{}'", declaredType);
 
     params.emplace_back(std::string(name), declaredType);
 
@@ -306,42 +310,15 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   logzy::trace("Parsing if else");
   expect(TokenType::If);
 
-  std::vector<IfBranch> branches;
+  std::unique_ptr<AstNode> condition = parseExpression();
+  std::unique_ptr<AstNode> expression = parseExpression();
   std::unique_ptr<AstNode> elseBody = nullptr;
-
-  while (true) {
-    IfBranch branch;
-
-    branch.condition = parseExpression();
-    if (branch.condition == nullptr) {
-      logzy::error("Couldn't parse if condition expression");
-      return nullptr;
-    }
-    branch.body = parseExpression();
-    if (branch.body == nullptr) {
-      logzy::error("Couldn't parse if's ifBlock expression");
-      return nullptr;
-    }
-    branches.emplace_back(std::move(branch));
-
-    if (match(TokenType::Else)) {
-      if (match(TokenType::If)) {
-        // Else if
-        continue;
-      }
-
-      elseBody = parseExpression();
-
-      if (elseBody == nullptr) {
-        logzy::error("Couldn't parse if's elseBlock expression");
-        return nullptr;
-      }
-    }
-    break;
+  if (match(TokenType::Else)) {
+    elseBody = parseExpression();
   }
 
-  return std::make_unique<IfElseAstNode>(std::move(branches),
-                                         std::move(elseBody));
+  return std::make_unique<IfElseAstNode>(
+      std::move(condition), std::move(expression), std::move(elseBody));
 }
 
 [[nodiscard]] auto Parser::parseLet() -> std::unique_ptr<LetAstNode> {
@@ -360,7 +337,6 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
                    varName, lexeme());
       return nullptr;
     }
-    nextToken();
   }
 
   expect(TokenType::Assign);

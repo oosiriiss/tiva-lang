@@ -1,3 +1,4 @@
+
 #include "semantic_visitor.hpp"
 
 #include <cstddef>
@@ -140,42 +141,39 @@ void SemanticAnalysisVisitor::visit(BlockAstNode *block) {
 }
 void SemanticAnalysisVisitor::visit(IfElseAstNode *ifElse) {
   logzy::trace("Semantic check of IfElseAstNode");
-
-  for (auto &segment : ifElse->branches) {
-    dispatch(segment.condition.get());
-    dispatch(segment.body.get());
-  }
-  if (ifElse->elseBody != nullptr) {
-    dispatch(ifElse->elseBody.get());
-  }
-
-  // TODO :: Check that all paths return the same type
   // TODO :: convert condition to bool
 
-  // Deducing type from the first if branch.
-  ifElse->resolvedType = ifElse->branches[0].body->resolvedType;
+  auto *condition = ifElse->condition.get();
+  auto *body = ifElse->body.get();
+  auto *elseBody = ifElse->elseBody.get();
+
+  dispatch(condition);
+  dispatch(body);
+
+  if (elseBody != nullptr) {
+    dispatch(elseBody);
+  }
+
+  TivaType resolvedType = TivaType::Void;
+
+  if (elseBody != nullptr) {
+    if (body->resolvedType == elseBody->resolvedType) {
+      resolvedType = body->resolvedType;
+    } else {
+      logzy::warn(
+          "If/elseif/else branches have different types. if expression cannot "
+          "return value. ");
+    }
+  }
+
+  ifElse->resolvedType = resolvedType;
 
   // No else block, expression returns void
-  if (ifElse->elseBody == nullptr) {
-    ifElse->resolvedType = TivaType::Void;
-  }
 
   logzy::trace("if/elseif/else block evaluated to: {}. Has else block?: {}",
                ifElse->resolvedType,
                (ifElse->elseBody == nullptr) ? "no" : "yes");
 
-  for (size_t i = 0; i < ifElse->branches.size(); ++i) {
-    auto &segment = ifElse->branches[i];
-    logzy::trace("Branch {}, condition: '{}', resolved type: '{}'", i,
-                 segment.condition->resolvedType, segment.body->resolvedType);
-  }
-
-  if (ifElse->elseBody != nullptr) {
-    logzy::trace("Else branch resolved type: '{}'",
-                 ifElse->elseBody->resolvedType);
-  } else {
-    logzy::trace("No else branch");
-  }
   logzy::trace("If/elseif/else checked");
 }
 void SemanticAnalysisVisitor::visit(LetAstNode *let) {

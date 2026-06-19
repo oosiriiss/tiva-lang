@@ -239,11 +239,17 @@ void SemanticAnalysisVisitor::visit(Function *func) {
     cast(func->body, func->prototype->returnType);
   }
 
+  // Updating inferred type in function table
+  DEBUG_ASSERT(functionTable_.contains(func->prototype->name));
+  FunctionSignature &sig = functionTable_[func->prototype->name];
+  if (sig.returnType == TivaType::Unknown) {
+    sig.returnType = func->body->resolvedType;
+  }
+
   func->prototype->returnType = func->body->resolvedType;
+
   logzy::trace("Function's body final return type: '{}'",
                func->body->resolvedType);
-  logzy::trace("Function's inferred return type: '{}'",
-               func->prototype->returnType);
 }
 
 void SemanticAnalysisVisitor::ensureValidTypes(

@@ -132,13 +132,14 @@ auto Parser::parseBoolean() -> std::unique_ptr<BooleanAstNode> {
   expect(TokenType::ParenBegin);
 
   std::vector<Parameter> params;
-  while (true) {
+
+  while (!match(')')) {
     logzy::trace("Parsing parameter");
     std::string_view name = expect(TokenType::Identifier).value;
     logzy::trace("Parameter name: '{}'", name);
     expect(TokenType::Colon);
     std::string_view typeString = expect(TokenType::Identifier).value;
-      logzy::trace("Parameter's type string is: '{}'",typeString);
+    logzy::trace("Parameter's type string is: '{}'", typeString);
 
     TivaType declaredType = fromString(typeString);
     if (declaredType == TivaType::Unknown) {

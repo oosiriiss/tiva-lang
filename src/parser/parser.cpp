@@ -19,6 +19,7 @@ namespace {
   enum Precedence : std::int8_t {
     None = -1,
     Assignment = 2,
+    Logical = 5,
     Term = 10,
     Factor = 20,
   };
@@ -27,16 +28,23 @@ namespace {
 
   constexpr auto getPrecedence(TokenType type) noexcept -> std::int8_t {
     switch (type) {
+
       case TokenType::Assign:
         return Precedence::Assignment;
+
+      case TokenType::Equality:
+        return Precedence::Logical;
+
       case TokenType::Plus:
         [[fallthrough]];
       case TokenType::Minus:
         return Precedence::Term;
+
       case TokenType::Multiply:
         [[fallthrough]];
       case TokenType::Divide:
         return Precedence::Factor;
+
       default:
         return Precedence::None;
     }

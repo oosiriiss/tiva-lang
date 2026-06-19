@@ -175,11 +175,20 @@ void CodeGenVisitor::visit(CallAstNode *call) {
       state_->builder.CreateCall(functionToCall, argValues, "calltmp");
 }
 void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
+  logzy::trace("generating code for binary expression with operator'{}'",
+               binExpr->op);
   std::unique_ptr<AstNode> &lhs = binExpr->lhs;
   std::unique_ptr<AstNode> &rhs = binExpr->rhs;
   TokenType oper = binExpr->op;
 
-  logzy::trace("generating code for binary expression with operator'{}'", oper);
+  if (lhs->resolvedType != rhs->resolvedType) {
+    logzy::error("Binary expression types mismatch");
+    ReturnValue = nullptr;
+    return;
+  }
+
+  TivaType operandsType = lhs->resolvedType;
+  DEBUG_ASSERT(lhs->resolvedType == rhs->resolvedType);
 
   // Special case for assginemnts
 
@@ -191,22 +200,7 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
     return;
   }
 
-  // Dirty way just to check working of floats
-  llvm::Type *leftTy = left->getType();
-  llvm::Type *rightTy = right->getType();
-
-  if (leftTy->isDoubleTy() && rightTy->isIntegerTy()) {
-    logzy::trace("Upcasting right operand to float");
-    right = state_->builder.CreateSIToFP(right, leftTy, "upcast_tmp");
-
-  } else if (leftTy->isIntegerTy() && rightTy->isDoubleTy()) {
-    logzy::trace("Upcasting left operand to float");
-    left = state_->builder.CreateSIToFP(left, rightTy, "upcast_tmp");
-  }
-
-  bool isFloat = (leftTy->isDoubleTy() || rightTy->isDoubleTy());
-
-  if (isFloat) {
+  if (operandsType == TivaType::Int) {
     switch (oper) {
       case TokenType::Plus:
         ReturnValue = state_->builder.CreateFAdd(left, right, "addftmp");
@@ -220,12 +214,15 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
       case TokenType::Multiply:
         ReturnValue = state_->builder.CreateFMul(left, right, "mulftmp");
         break;
+      case TokenType::Equality:
+        ReturnValue = state_->builder.CreateICmpEQ(left, right, "eqinttmp");
+        break;
       default:
-        logzy::error("invalid operator '{}'", oper);
+        logzy::error("invalid int operator '{}'", oper);
         ReturnValue = nullptr;
         break;
     }
-  } else {
+  } else if (operandsType == TivaType::Float) {
     switch (oper) {
       case TokenType::Plus:
         ReturnValue = state_->builder.CreateAdd(left, right, "addtmp");
@@ -239,8 +236,21 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
       case TokenType::Multiply:
         ReturnValue = state_->builder.CreateMul(left, right, "multmp");
         break;
+      case TokenType::Equality:
+        ReturnValue = state_->builder.CreateFCmpOEQ(left, right, "eqfloattmp");
+        break;
       default:
-        logzy::error("invalid operator '{}'", oper);
+        logzy::error("invalid float operator '{}'", oper);
+        ReturnValue = nullptr;
+        break;
+    }
+  } else if (operandsType == TivaType::Boolean) {
+    switch (oper) {
+      case TokenType::Equality:
+        ReturnValue = state_->builder.CreateICmpEQ(left, right, "eqbooltmp");
+        break;
+      default:
+        logzy::error("Invalid boolean operator '{}'", oper);
         ReturnValue = nullptr;
         break;
     }
@@ -283,6 +293,15 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
   llvm::BasicBlock *mergeBlock =
       llvm::BasicBlock::Create(state_->context, "ifMergeBlock");
 
+  if (ifElse->condition->resolvedType != TivaType::Boolean) {
+    logzy::error(
+        "Cannot generate code for condition with type '{}' only booleans "
+        "allowed.",
+        ifElse->condition->resolvedType);
+    ReturnValue = nullptr;
+    return;
+  }
+
   auto *conditionValue = generate(ifElse->condition);
 
   if (conditionValue == nullptr) {
@@ -290,19 +309,8 @@ void CodeGenVisitor::visit(IfElseAstNode *ifElse) {
     ReturnValue = nullptr;
     return;
   }
+
   logzy::trace("Code for if condition generated");
-
-  // TODO :: For now integer condition automatically converts to int. make
-  // sure ther condition is bool LATER.
-
-  logzy::trace(
-      "Converting condition of type '{}' to boolean by comparing it to 0",
-      ifElse->condition->resolvedType);
-
-  conditionValue = state_->builder.CreateICmpNE(
-      conditionValue,
-      llvm::ConstantInt::get(state_->context,
-                             llvm::APInt(typing::INT_BITS, 0, true)));
 
   llvm::BasicBlock *bodyBlock =
       llvm::BasicBlock::Create(state_->context, "ifBranch", parentFunc);

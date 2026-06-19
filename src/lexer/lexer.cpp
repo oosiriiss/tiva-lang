@@ -200,7 +200,11 @@ namespace {
       type = TokenType::CurlyEnd;
       break;
     case '=':
-      type = TokenType::Assign;
+      if (match('=')) {
+        type = TokenType::Equality;
+      } else {
+        type = TokenType::Assign;
+      }
       break;
     case ':':
       type = TokenType::Colon;
@@ -210,8 +214,8 @@ namespace {
       return std::nullopt;
   }
 
-  return std::optional<Token>{
-      std::in_place_t{}, std::string_view{source_.data(), symbolChars}, type };
+  return std::optional<Token>{std::in_place_t{}, source_.substr(0, symbolChars),
+                              type};
 }
 
 void Lexer::skipWhitespace() noexcept {

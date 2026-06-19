@@ -1,6 +1,8 @@
 
 #include "semantic_visitor.hpp"
 
+#include <llvm/IR/InlineAsm.h>
+
 #include <cstddef>
 
 #include "debug.hpp"
@@ -74,7 +76,9 @@ void SemanticAnalysisVisitor::visit(CallAstNode *call) {
 
   auto sigIter = functionTable_.find(variableNode->name);
   if (sigIter == functionTable_.end()) {
-    logzy::error("Trying to call undefined function '{}'", variableNode->name);
+    logzy::error(
+        "Trying to call undefined function '{}', defined functions: {}",
+        variableNode->name, functionTable_.size());
     return;
   }
   auto &sig = sigIter->second;
@@ -117,6 +121,14 @@ void SemanticAnalysisVisitor::visit(BinaryExprAstNode *binExp) {
     binExp->resolvedType = TivaType::Int;
   }
 
+  switch (binExp->op) {
+    case TokenType::Equality:
+      binExp->resolvedType = TivaType::Boolean;
+      break;
+    default:
+      break;
+  }
+
   logzy::trace("Expression lhs:{} op:{} rhs:{} has return type of {}", leftType,
                binExp->op, rightType, binExp->resolvedType);
 }
@@ -148,6 +160,12 @@ void SemanticAnalysisVisitor::visit(IfElseAstNode *ifElse) {
   auto *elseBody = ifElse->elseBody.get();
 
   dispatch(condition);
+
+  if (condition->resolvedType != TivaType::Boolean) {
+    logzy::error("If's condition is not a boolean expression");
+    return;
+  }
+
   dispatch(body);
 
   if (elseBody != nullptr) {
@@ -200,6 +218,7 @@ void SemanticAnalysisVisitor::visit(CastAstNode *cast) {
 }
 
 void SemanticAnalysisVisitor::visit(FunctionPrototype *proto) {
+  logzy::trace("Semantic check of function '{}' prototype", proto->name);
   for (auto &param : proto->params) {
     scopes_.putVariable(param.name, param.declaredType);
   }

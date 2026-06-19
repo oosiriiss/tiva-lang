@@ -24,6 +24,7 @@ enum class TokenType : char {
   Arrow,
   Eof,
   As,
+  Equality,
   Unknown,
 };
 
@@ -76,6 +77,8 @@ constexpr auto toString(TokenType type) noexcept -> std::string_view {
       return "Eof";
     case TokenType::As:
       return "As";
+    case TokenType::Equality:
+      return "Equality";
     case TokenType::Unknown:
       return "Unknown";
     default:

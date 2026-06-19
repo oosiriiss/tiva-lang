@@ -40,6 +40,7 @@
 #include <logzy/logzy.hpp>
 
 #include "codegen/module.hpp"
+#include "debug.hpp"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "parser/ast_nodes.hpp"
@@ -50,9 +51,10 @@
   ReturnValue = nullptr;
   node->accept(this);
 
-  if (ReturnValue == nullptr) {
-    logzy::error("Expression didn't return a value");
+  if (node->resolvedType != TivaType::Void && ReturnValue == nullptr) {
+    logzy::error("Expression didn't return a value, but a value was expected");
   }
+
   return ReturnValue;
 }
 
@@ -256,7 +258,7 @@ void CodeGenVisitor::visit(BlockAstNode *block) {
     for (auto &expr : block->expressions) {
       ReturnValue = generate(expr);
 
-      if (ReturnValue == nullptr) {
+      if (expr->resolvedType != TivaType::Void && ReturnValue == nullptr) {
         logzy::error("Failed to generate code for expression");
         ReturnValue = nullptr;
         return;

@@ -33,6 +33,11 @@ namespace {
         return Precedence::Assignment;
 
       case TokenType::Equality:
+      case TokenType::NotEqual:
+      case TokenType::LessThan:
+      case TokenType::LessEqualThan:
+      case TokenType::MoreThan:
+      case TokenType::MoreEqualThan:
         return Precedence::Logical;
 
       case TokenType::Plus:

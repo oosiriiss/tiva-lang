@@ -217,6 +217,21 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
       case TokenType::Equality:
         ReturnValue = state_->builder.CreateICmpEQ(left, right, "eqinttmp");
         break;
+      case TokenType::NotEqual:
+        ReturnValue = state_->builder.CreateICmpNE(left, right, "noteqinttmp");
+        break;
+      case TokenType::LessThan:
+        ReturnValue = state_->builder.CreateICmpSLT(left, right, "ltinttmp");
+        break;
+      case TokenType::LessEqualThan:
+        ReturnValue = state_->builder.CreateICmpSLE(left, right, "leinttmp");
+        break;
+      case TokenType::MoreThan:
+        ReturnValue = state_->builder.CreateICmpSGT(left, right, "gtinttmp");
+        break;
+      case TokenType::MoreEqualThan:
+        ReturnValue = state_->builder.CreateICmpSGE(left, right, "geinttmp");
+        break;
       default:
         logzy::error("invalid int operator '{}'", oper);
         ReturnValue = nullptr;
@@ -239,6 +254,22 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
       case TokenType::Equality:
         ReturnValue = state_->builder.CreateFCmpOEQ(left, right, "eqfloattmp");
         break;
+      case TokenType::NotEqual:
+        ReturnValue =
+            state_->builder.CreateFCmpONE(left, right, "noteqfloattmp");
+        break;
+      case TokenType::LessThan:
+        ReturnValue = state_->builder.CreateFCmpOLT(left, right, "ltfloattmp");
+        break;
+      case TokenType::LessEqualThan:
+        ReturnValue = state_->builder.CreateFCmpOLE(left, right, "lefloattmp");
+        break;
+      case TokenType::MoreThan:
+        ReturnValue = state_->builder.CreateFCmpOGT(left, right, "gtfloattmp");
+        break;
+      case TokenType::MoreEqualThan:
+        ReturnValue = state_->builder.CreateFCmpOGE(left, right, "gefloattmp");
+        break;
       default:
         logzy::error("invalid float operator '{}'", oper);
         ReturnValue = nullptr;
@@ -249,6 +280,9 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
       case TokenType::Equality:
         ReturnValue = state_->builder.CreateICmpEQ(left, right, "eqbooltmp");
         break;
+      case TokenType::NotEqual:
+        ReturnValue = state_->builder.CreateICmpNE(left, right, "nebooltmp");
+        break;
       default:
         logzy::error("Invalid boolean operator '{}'", oper);
         ReturnValue = nullptr;
@@ -256,6 +290,7 @@ void CodeGenVisitor::visit(BinaryExprAstNode *binExpr) {
     }
   }
 }
+
 void CodeGenVisitor::visit(BlockAstNode *block) {
   std::vector<std::unique_ptr<AstNode>> &expressions = block->expressions;
 

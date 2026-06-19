@@ -123,6 +123,11 @@ void SemanticAnalysisVisitor::visit(BinaryExprAstNode *binExp) {
 
   switch (binExp->op) {
     case TokenType::Equality:
+    case TokenType::NotEqual:
+    case TokenType::LessThan:
+    case TokenType::LessEqualThan:
+    case TokenType::MoreThan:
+    case TokenType::MoreEqualThan:
       binExp->resolvedType = TivaType::Boolean;
       break;
     default:

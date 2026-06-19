@@ -25,6 +25,11 @@ enum class TokenType : char {
   Eof,
   As,
   Equality,
+  NotEqual,
+  LessThan,
+  LessEqualThan,
+  MoreThan,
+  MoreEqualThan,
   Unknown,
 };
 
@@ -79,6 +84,14 @@ constexpr auto toString(TokenType type) noexcept -> std::string_view {
       return "As";
     case TokenType::Equality:
       return "Equality";
+    case TokenType::LessThan:
+      return "LessThan";
+    case TokenType::LessEqualThan:
+      return "LessEqualThan";
+    case TokenType::MoreThan:
+      return "MoreThan";
+    case TokenType::MoreEqualThan:
+      return "MoreEqualThan";
     case TokenType::Unknown:
       return "Unknown";
     default:

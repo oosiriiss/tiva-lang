@@ -199,11 +199,31 @@ namespace {
     case '}':
       type = TokenType::CurlyEnd;
       break;
+    case '!':
+      if (match('=')) {
+        type = TokenType::NotEqual;
+      }
+      break;
     case '=':
       if (match('=')) {
         type = TokenType::Equality;
       } else {
         type = TokenType::Assign;
+      }
+      break;
+
+    case '<':
+      if (match('=')) {
+        type = TokenType::LessEqualThan;
+      } else {
+        type = TokenType::LessThan;
+      }
+      break;
+    case '>':
+      if (match('=')) {
+        type = TokenType::MoreEqualThan;
+      } else {
+        type = TokenType::MoreThan;
       }
       break;
     case ':':

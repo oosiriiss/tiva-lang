@@ -11,7 +11,7 @@ include(FetchContent)
 FetchContent_Declare(
    logzy
    GIT_REPOSITORY https://github.com/oosiriiss/logzy
-   GIT_TAG 075928d08bc97f05d10e1d4def802e2bf0792fc4 # 0.1.1
+   GIT_TAG 23cd60bcdd4b4e494d4fb46f79ab1860522a1025 # 0.2
 )
 FetchContent_Declare(
    cppli

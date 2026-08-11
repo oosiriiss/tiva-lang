@@ -24,7 +24,7 @@ namespace {
                    Option{.firstName = "-h",
                           .secondName = "--help",
                           .description = "Displays help message",
-                          .needsValue = true});
+                          .needsValue = false});
 
     return opts;
   }
